@@ -22,6 +22,7 @@ backup-monitor:
         service-account:
           username:            ${MANAGER_1_SA_USERNAME}
           password:            ${MANAGER_1_SA_PASSWORD}
+        space-guid:            ${MANAGER_1_CF_SPACE_GUID:}
       instances:
         - id:                  ${MANAGER_1_INSTANCE_1_ID}
           name:                ${MANAGER_1_INSTANCE_1_NAME:pg-prod-orders}

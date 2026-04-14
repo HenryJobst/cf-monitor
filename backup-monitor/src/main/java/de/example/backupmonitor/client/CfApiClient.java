@@ -2,6 +2,7 @@ package de.example.backupmonitor.client;
 
 import de.example.backupmonitor.auth.CfTokenServiceRegistry;
 import de.example.backupmonitor.config.MonitoringConfig;
+import de.example.backupmonitor.model.S3FileDestination;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -9,6 +10,8 @@ import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -89,6 +92,142 @@ public class CfApiClient {
         return extractCredentials(response);
     }
 
+    /**
+     * Sucht managed Service-Instances im angegebenen Space, deren Service-Offering
+     * dem konfigurierten S3-Label entspricht.
+     * Nutzt CF v3 include=service_plan um die Offering-Namen inline zu erhalten.
+     */
+    @SuppressWarnings("unchecked")
+    public List<S3ServiceCandidate> findServiceInstancesByOffering(
+            String managerId, String spaceGuid, String serviceOfferingLabel) {
+        String url = cfApiEndpoint(managerId)
+                + "/v3/service_instances?space_guids=" + spaceGuid
+                + "&type=managed"
+                + "&include=service_plan"
+                + "&fields[service_plan.service_offering]=name,guid";
+        try {
+            Map<?, ?> response = get(managerId, url, Map.class);
+            if (response == null) return List.of();
+
+            // Baue Map: planGuid → offeringName aus dem included-Block
+            Map<String, String> planOfferingNames = new java.util.HashMap<>();
+            var included = (Map<?, ?>) response.get("included");
+            if (included != null) {
+                var plans = (List<?>) included.get("service_plans");
+                var offerings = (List<?>) included.get("service_offerings");
+                Map<String, String> offeringNames = new java.util.HashMap<>();
+                if (offerings != null) {
+                    for (var o : offerings) {
+                        var om = (Map<?, ?>) o;
+                        offeringNames.put((String) om.get("guid"), (String) om.get("name"));
+                    }
+                }
+                if (plans != null) {
+                    for (var p : plans) {
+                        var pm = (Map<?, ?>) p;
+                        String planGuid = (String) pm.get("guid");
+                        var offeringRel = (Map<?, ?>) ((Map<?, ?>) pm.get("relationships"))
+                                .get("service_offering");
+                        String offeringGuid = (String) ((Map<?, ?>) offeringRel.get("data")).get("guid");
+                        planOfferingNames.put(planGuid, offeringNames.getOrDefault(offeringGuid, ""));
+                    }
+                }
+            }
+
+            List<S3ServiceCandidate> result = new ArrayList<>();
+            var resources = (List<?>) response.get("resources");
+            if (resources == null) return List.of();
+            for (var res : resources) {
+                var inst = (Map<?, ?>) res;
+                String instGuid = (String) inst.get("guid");
+                String instName = (String) inst.get("name");
+                var planRel = (Map<?, ?>) ((Map<?, ?>) inst.get("relationships")).get("service_plan");
+                String planGuid = (String) ((Map<?, ?>) planRel.get("data")).get("guid");
+                String offeringName = planOfferingNames.getOrDefault(planGuid, "");
+                if (serviceOfferingLabel.equalsIgnoreCase(offeringName)) {
+                    result.add(new S3ServiceCandidate(instGuid, instName));
+                }
+            }
+            return result;
+        } catch (Exception e) {
+            log.warn("Failed to list S3 service instances in space {}: {}", spaceGuid, e.getMessage());
+            return List.of();
+        }
+    }
+
+    /**
+     * Liest S3-Credentials aus einem vorhandenen Service-Key oder legt einen neuen an.
+     * Unterstützt gängige Credential-Feldnamen (AWS-Stil und MinIO-Stil).
+     */
+    @SuppressWarnings("unchecked")
+    public S3FileDestination getS3Credentials(String managerId, String instanceGuid,
+                                               String instanceName) {
+        // Prüfe ob bereits ein Service-Key existiert
+        String listUrl = cfApiEndpoint(managerId)
+                + "/v3/service_credential_bindings?service_instance_guids=" + instanceGuid
+                + "&type=key";
+        Map<?, ?> listResponse = get(managerId, listUrl, Map.class);
+
+        String keyGuid;
+        var resources = listResponse != null ? (List<?>) listResponse.get("resources") : null;
+        if (resources != null && !resources.isEmpty()) {
+            keyGuid = (String) ((Map<?, ?>) resources.get(0)).get("guid");
+            log.debug("Reusing existing service key {} for S3 instance {}", keyGuid, instanceName);
+        } else {
+            // Neuen Key anlegen
+            String keyName = "backup-monitor-" + instanceName + "-key";
+            String createUrl = cfApiEndpoint(managerId) + "/v3/service_credential_bindings";
+            Map<String, Object> body = Map.of(
+                    "name", keyName,
+                    "type", "key",
+                    "relationships", Map.of(
+                            "service_instance", Map.of("data", Map.of("guid", instanceGuid))));
+            post(managerId, createUrl, body);
+            log.info("Created service key '{}' for S3 instance {}", keyName, instanceName);
+
+            // Key-GUID auflösen
+            Map<?, ?> keyList = get(managerId,
+                    cfApiEndpoint(managerId) + "/v3/service_credential_bindings?names=" + keyName,
+                    Map.class);
+            var keyResources = keyList != null ? (List<?>) keyList.get("resources") : null;
+            if (keyResources == null || keyResources.isEmpty())
+                throw new RuntimeException("Service key not found after creation: " + keyName);
+            keyGuid = (String) ((Map<?, ?>) keyResources.get(0)).get("guid");
+        }
+
+        // Credentials abrufen
+        String detailUrl = cfApiEndpoint(managerId)
+                + "/v3/service_credential_bindings/" + keyGuid + "/details";
+        Map<?, ?> detail = get(managerId, detailUrl, Map.class);
+        if (detail == null) throw new RuntimeException("No details for service key " + keyGuid);
+        Map<String, Object> creds = (Map<String, Object>) detail.get("credentials");
+        if (creds == null) throw new RuntimeException("No credentials in service key " + keyGuid);
+
+        return buildS3Destination(creds);
+    }
+
+    /**
+     * Mappt CF-Service-Credentials auf S3FileDestination.
+     * Unterstützt AWS-Stil (access_key_id/secret_access_key) und MinIO-Stil (access_key/secret_key).
+     */
+    private S3FileDestination buildS3Destination(Map<String, Object> creds) {
+        S3FileDestination dest = new S3FileDestination();
+        dest.setAuthKey(firstPresent(creds, "access_key_id", "access_key", "accessKeyId"));
+        dest.setAuthSecret(firstPresent(creds, "secret_access_key", "secret_key", "secretAccessKey"));
+        dest.setBucket(firstPresent(creds, "bucket", "default_bucket", "bucketName"));
+        dest.setEndpoint(firstPresent(creds, "endpoint", "host", "uri", "url"));
+        dest.setRegion(firstPresent(creds, "region", "aws_region", "location"));
+        return dest;
+    }
+
+    private String firstPresent(Map<String, Object> map, String... keys) {
+        for (String key : keys) {
+            Object val = map.get(key);
+            if (val instanceof String s && !s.isBlank()) return s;
+        }
+        return null;
+    }
+
     public void deleteServiceInstance(String managerId, String instanceGuid) {
         String url = cfApiEndpoint(managerId) + "/v3/service_instances/" + instanceGuid;
         restClient.delete()
@@ -166,4 +305,6 @@ public class CfApiClient {
 
     public record ServiceKeyCredentials(String host, int port, String database,
                                          String username, String password) {}
+
+    public record S3ServiceCandidate(String guid, String name) {}
 }

@@ -32,6 +32,12 @@ backup-monitor:
     username: ${ACTUATOR_USERNAME}
     password: ${ACTUATOR_PASSWORD}
 
+  auto-provision:
+    enabled:          ${AUTO_PROVISION_ENABLED:false}
+    s3-service-label: ${AUTO_PROVISION_S3_LABEL:s3}
+    # Täglich um 02:00 Uhr – typischer Zyklus für Datenbank-Backups
+    backup-schedule:  ${AUTO_PROVISION_SCHEDULE:0 2 * * *}
+
   scheduling:
     job-check-cron:            ${JOB_CHECK_CRON:0 0 6 * * *}
     orphan-cleanup-cron:       ${ORPHAN_CLEANUP_CRON:0 0 4 * * *}

@@ -12,6 +12,7 @@ public class MonitoringConfig {
 
     private EncryptionProperties encryption = new EncryptionProperties();
     private ActuatorProperties actuator = new ActuatorProperties();
+    private AutoProvisionProperties autoProvision = new AutoProvisionProperties();
     private SchedulingProperties scheduling = new SchedulingProperties();
     private RestoreTestProperties restoreTest = new RestoreTestProperties();
     private S3VerificationProperties s3Verification = new S3VerificationProperties();
@@ -28,6 +29,16 @@ public class MonitoringConfig {
     public static class ActuatorProperties {
         private String username;
         private String password;
+    }
+
+    @Data
+    public static class AutoProvisionProperties {
+        /** Auto-Provisioning aktivieren: legt fehlende Backup-Pläne automatisch an. */
+        private boolean enabled = false;
+        /** CF-Service-Offering-Label des S3-Dienstes im Space (z.B. "s3", "minio"). */
+        private String s3ServiceLabel = "s3";
+        /** Backup-Schedule im Cron-Format (5-stellig ohne Sekunden). */
+        private String backupSchedule = "0 2 * * *";
     }
 
     @Data
@@ -76,6 +87,8 @@ public class MonitoringConfig {
     public static class CfConfig {
         private String uaaEndpoint;
         private String cfApiEndpoint;
+        /** GUID des CF-Space, in dem nach S3-Diensten gesucht wird (für Auto-Provisioning). */
+        private String spaceGuid;
         private ServiceAccountConfig serviceAccount = new ServiceAccountConfig();
     }
 

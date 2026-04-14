@@ -14,11 +14,16 @@ import java.util.Optional;
 public class BackupPlanMonitor {
 
     private final BackupManagerClient managerClient;
+    private final BackupPlanProvisioner provisioner;
 
     public PlanCheckResult checkPlan(String managerId, String instanceId) {
         Optional<BackupPlan> planOpt = managerClient.getBackupPlan(managerId, instanceId);
 
         if (planOpt.isEmpty()) {
+            Optional<BackupPlan> provisioned = provisioner.tryProvision(managerId, instanceId);
+            if (provisioned.isPresent()) {
+                return PlanCheckResult.ok(provisioned.get());
+            }
             log.warn("No backup plan found for instance {}", instanceId);
             return PlanCheckResult.failed("No backup plan found");
         }

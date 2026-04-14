@@ -6,12 +6,15 @@ import de.example.backupmonitor.auth.CfTokenServiceRegistry;
 import de.example.backupmonitor.config.MonitoringConfig;
 import de.example.backupmonitor.model.BackupJob;
 import de.example.backupmonitor.model.BackupPlan;
+import de.example.backupmonitor.model.S3FileDestination;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -78,6 +81,48 @@ public class BackupManagerClient {
             log.warn("Failed to get latest job for instance {}: {}", instanceId, e.getMessage());
             return Optional.empty();
         }
+    }
+
+    /**
+     * Legt einen neuen Backup-Plan für eine Service-Instanz an.
+     *
+     * @param schedule Cron-Ausdruck (5-stellig, z.B. "0 2 * * *" für täglich 02:00)
+     */
+    public Optional<BackupPlan> createBackupPlan(String managerId, String instanceId,
+                                                   String schedule,
+                                                   S3FileDestination destination) {
+        try {
+            ManagerEndpoint ep = endpoints.get(managerId);
+            String url = ep.url + "/backupPlans";
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("instance_id", instanceId);
+            body.put("schedule", schedule);
+            body.put("destination", buildDestinationPayload(destination));
+
+            BackupPlan plan = ep.restClient.post()
+                    .uri(url)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(BackupPlan.class);
+            log.info("Created backup plan for instance {} (schedule: {})", instanceId, schedule);
+            return Optional.ofNullable(plan);
+        } catch (Exception e) {
+            log.warn("Failed to create backup plan for instance {}: {}", instanceId, e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    private Map<String, Object> buildDestinationPayload(S3FileDestination s3) {
+        Map<String, Object> dest = new HashMap<>();
+        dest.put("type", "S3");
+        dest.put("bucket", s3.getBucket());
+        if (s3.getEndpoint() != null) dest.put("endpoint", s3.getEndpoint());
+        if (s3.getRegion() != null) dest.put("region", s3.getRegion());
+        dest.put("auth_key", s3.getAuthKey());
+        dest.put("auth_secret", s3.getAuthSecret());
+        return dest;
     }
 
     public Optional<BackupJob> getJobById(String managerId, String jobId) {
