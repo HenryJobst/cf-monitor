@@ -5,14 +5,10 @@ import de.example.backupmonitor.auth.CfTokenServiceRegistry;
 import de.example.backupmonitor.config.MonitoringConfig;
 import de.example.backupmonitor.model.BackupJob;
 import de.example.backupmonitor.model.BackupPlan;
-import de.example.backupmonitor.model.JobStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.RestClient;
 
 import java.util.List;
 import java.util.Map;
@@ -36,10 +32,10 @@ public class BackupManagerClient {
         try {
             ManagerEndpoint ep = endpoints.get(managerId);
             String url = ep.url + "/v2/service_instances/" + instanceId + "/backup_plans";
-            List<BackupPlan> plans = ep.restTemplate.exchange(
-                    url, HttpMethod.GET,
-                    new HttpEntity<>(new HttpHeaders()),
-                    new ParameterizedTypeReference<List<BackupPlan>>() {}).getBody();
+            List<BackupPlan> plans = ep.restClient.get()
+                    .uri(url)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<>() {});
             if (plans == null || plans.isEmpty()) return Optional.empty();
             return Optional.of(plans.get(0));
         } catch (Exception e) {
@@ -53,10 +49,10 @@ public class BackupManagerClient {
             ManagerEndpoint ep = endpoints.get(managerId);
             String url = ep.url + "/v2/service_instances/" + instanceId
                     + "/backup_jobs?status=SUCCEEDED&limit=1";
-            List<BackupJob> jobs = ep.restTemplate.exchange(
-                    url, HttpMethod.GET,
-                    new HttpEntity<>(new HttpHeaders()),
-                    new ParameterizedTypeReference<List<BackupJob>>() {}).getBody();
+            List<BackupJob> jobs = ep.restClient.get()
+                    .uri(url)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<>() {});
             if (jobs == null || jobs.isEmpty()) return Optional.empty();
             return Optional.of(jobs.get(0));
         } catch (Exception e) {
@@ -69,10 +65,10 @@ public class BackupManagerClient {
         try {
             ManagerEndpoint ep = endpoints.get(managerId);
             String url = ep.url + "/v2/service_instances/" + instanceId + "/backup_jobs?limit=1";
-            List<BackupJob> jobs = ep.restTemplate.exchange(
-                    url, HttpMethod.GET,
-                    new HttpEntity<>(new HttpHeaders()),
-                    new ParameterizedTypeReference<List<BackupJob>>() {}).getBody();
+            List<BackupJob> jobs = ep.restClient.get()
+                    .uri(url)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<>() {});
             if (jobs == null || jobs.isEmpty()) return Optional.empty();
             return Optional.of(jobs.get(0));
         } catch (Exception e) {
@@ -85,10 +81,10 @@ public class BackupManagerClient {
         try {
             ManagerEndpoint ep = endpoints.get(managerId);
             String url = ep.url + "/v2/backup_jobs/" + jobId;
-            BackupJob job = ep.restTemplate.exchange(
-                    url, HttpMethod.GET,
-                    new HttpEntity<>(new HttpHeaders()),
-                    BackupJob.class).getBody();
+            BackupJob job = ep.restClient.get()
+                    .uri(url)
+                    .retrieve()
+                    .body(BackupJob.class);
             return Optional.ofNullable(job);
         } catch (Exception e) {
             log.warn("Failed to get job {} : {}", jobId, e.getMessage());
@@ -98,13 +94,13 @@ public class BackupManagerClient {
 
     private static class ManagerEndpoint {
         final String url;
-        final RestTemplate restTemplate;
+        final RestClient restClient;
 
         ManagerEndpoint(String url, String managerId, CfTokenServiceRegistry tokenRegistry) {
             this.url = url;
-            this.restTemplate = new RestTemplate();
-            this.restTemplate.getInterceptors().add(
-                    new BearerTokenInterceptor(managerId, tokenRegistry));
+            this.restClient = RestClient.builder()
+                    .requestInterceptor(new BearerTokenInterceptor(managerId, tokenRegistry))
+                    .build();
         }
     }
 }

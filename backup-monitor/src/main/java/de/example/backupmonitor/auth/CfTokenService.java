@@ -1,14 +1,12 @@
 package de.example.backupmonitor.auth;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.encrypt.TextEncryptor;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.RestClient;
 
 import java.time.Instant;
 
@@ -21,7 +19,7 @@ public class CfTokenService {
     private final String password;
     private final TokenRepository tokenRepository;
     private final TextEncryptor encryptor;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestClient restClient = RestClient.create();
 
     private volatile String accessToken;
     private volatile String refreshToken;
@@ -128,12 +126,14 @@ public class CfTokenService {
     }
 
     private TokenResponse postToUaa(MultiValueMap<String, String> params) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-        headers.setBasicAuth("cf", "");
-        return restTemplate.postForObject(
-                uaaEndpoint + "/oauth/token",
-                new HttpEntity<>(params, headers),
-                TokenResponse.class);
+        return restClient.post()
+                .uri(uaaEndpoint + "/oauth/token")
+                .headers(h -> {
+                    h.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+                    h.setBasicAuth("cf", "");
+                })
+                .body(params)
+                .retrieve()
+                .body(TokenResponse.class);
     }
 }

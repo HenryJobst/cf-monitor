@@ -3,9 +3,9 @@ package de.example.backupmonitor.client;
 import de.example.backupmonitor.auth.CfTokenServiceRegistry;
 import de.example.backupmonitor.config.MonitoringConfig;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.*;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -18,7 +18,7 @@ public class CfApiClient {
 
     private final Map<String, String> cfApiEndpoints;
     private final CfTokenServiceRegistry tokenRegistry;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestClient restClient = RestClient.create();
 
     public CfApiClient(MonitoringConfig config, CfTokenServiceRegistry tokenRegistry) {
         this.tokenRegistry = tokenRegistry;
@@ -91,9 +91,11 @@ public class CfApiClient {
 
     public void deleteServiceInstance(String managerId, String instanceGuid) {
         String url = cfApiEndpoint(managerId) + "/v3/service_instances/" + instanceGuid;
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(tokenRegistry.getToken(managerId));
-        restTemplate.exchange(url, HttpMethod.DELETE, new HttpEntity<>(headers), Void.class);
+        restClient.delete()
+                .uri(url)
+                .headers(h -> h.setBearerAuth(tokenRegistry.getToken(managerId)))
+                .retrieve()
+                .toBodilessEntity();
         log.info("Deleted CF service instance {}", instanceGuid);
     }
 
@@ -137,18 +139,23 @@ public class CfApiClient {
     }
 
     private <T> T get(String managerId, String url, Class<T> type) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(tokenRegistry.getToken(managerId));
-        return restTemplate.exchange(
-                url, HttpMethod.GET,
-                new HttpEntity<>(headers), type).getBody();
+        return restClient.get()
+                .uri(url)
+                .headers(h -> h.setBearerAuth(tokenRegistry.getToken(managerId)))
+                .retrieve()
+                .body(type);
     }
 
     private void post(String managerId, String url, Object body) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(tokenRegistry.getToken(managerId));
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        restTemplate.postForEntity(url, new HttpEntity<>(body, headers), Void.class);
+        restClient.post()
+                .uri(url)
+                .headers(h -> {
+                    h.setBearerAuth(tokenRegistry.getToken(managerId));
+                    h.setContentType(MediaType.APPLICATION_JSON);
+                })
+                .body(body)
+                .retrieve()
+                .toBodilessEntity();
     }
 
     private String cfApiEndpoint(String managerId) {

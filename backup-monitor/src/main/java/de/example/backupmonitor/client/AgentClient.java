@@ -4,11 +4,9 @@ import de.example.backupmonitor.config.MonitoringConfig;
 import de.example.backupmonitor.model.FileDestination;
 import de.example.backupmonitor.sandbox.SandboxConnection;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.RestClient;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -47,11 +45,16 @@ public class AgentClient {
         body.put("target_username", sandbox.username());
         body.put("target_password", sandbox.password());
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBasicAuth(ep.username, ep.password);
+        ep.restClient.post()
+                .uri(url)
+                .headers(h -> {
+                    h.setContentType(MediaType.APPLICATION_JSON);
+                    h.setBasicAuth(ep.username, ep.password);
+                })
+                .body(body)
+                .retrieve()
+                .toBodilessEntity();
 
-        ep.restTemplate.postForEntity(url, new HttpEntity<>(body, headers), Void.class);
         log.info("Triggered restore job {} via agent for manager {}", agentJobId, managerId);
         return agentJobId;
     }
@@ -60,15 +63,12 @@ public class AgentClient {
         AgentEndpoint ep = endpoints.get(managerId);
         String url = ep.url + "/v2/restore_jobs/" + agentJobId;
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBasicAuth(ep.username, ep.password);
-
         try {
-            Map<?, ?> response = ep.restTemplate.exchange(
-                    url,
-                    org.springframework.http.HttpMethod.GET,
-                    new HttpEntity<>(headers),
-                    Map.class).getBody();
+            Map<?, ?> response = ep.restClient.get()
+                    .uri(url)
+                    .headers(h -> h.setBasicAuth(ep.username, ep.password))
+                    .retrieve()
+                    .body(Map.class);
             if (response == null) return AgentRestoreStatus.UNKNOWN;
             String status = String.valueOf(response.get("status"));
             return AgentRestoreStatus.fromString(status);
@@ -94,12 +94,13 @@ public class AgentClient {
         final String url;
         final String username;
         final String password;
-        final RestTemplate restTemplate = new RestTemplate();
+        final RestClient restClient;
 
         AgentEndpoint(String url, String username, String password) {
             this.url = url;
             this.username = username;
             this.password = password;
+            this.restClient = RestClient.create();
         }
     }
 }
