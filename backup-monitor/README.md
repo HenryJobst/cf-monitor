@@ -52,7 +52,8 @@ All results are persisted to PostgreSQL and exposed as Prometheus metrics. Distr
 |---|---|
 | Java | 21 |
 | PostgreSQL | 14+ |
-| OSB Backup Manager | compatible v2 API |
+| OSB Backup Manager | [evoila/osb-backup-manager](https://github.com/evoila/osb-backup-manager) public API |
+| OSB Backup Agent | [evoila/osb-backup-agent](https://github.com/evoila/osb-backup-agent) public API |
 | S3-compatible store | AWS S3, MinIO, Ceph, etc. |
 | CloudFoundry | V3 API (for restore test provisioning, optional) |
 
@@ -313,7 +314,8 @@ Alle Ergebnisse werden in PostgreSQL gespeichert und als Prometheus-Metriken ber
 |---|---|
 | Java | 21 |
 | PostgreSQL | 14+ |
-| OSB-Backup-Manager | kompatible v2-API |
+| OSB-Backup-Manager | [evoila/osb-backup-manager](https://github.com/evoila/osb-backup-manager) öffentliche API |
+| OSB-Backup-Agent | [evoila/osb-backup-agent](https://github.com/evoila/osb-backup-agent) öffentliche API |
 | S3-kompatibler Store | AWS S3, MinIO, Ceph usw. |
 | CloudFoundry | V3-API (nur für Restore-Test-Provisionierung, optional) |
 
