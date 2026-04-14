@@ -1,8 +1,8 @@
 package de.example.backupmonitor.config;
 
 import io.github.cdimascio.dotenv.Dotenv;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.env.EnvironmentPostProcessor;
+import org.springframework.boot.context.event.ApplicationEnvironmentPreparedEvent;
+import org.springframework.context.ApplicationListener;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.StandardEnvironment;
@@ -15,12 +15,12 @@ import java.util.Map;
  * als PropertySource ein – mit niedrigerer Priorität als echte OS-Umgebungsvariablen.
  * Ist keine .env-Datei vorhanden, passiert nichts (ignoreIfMissing).
  */
-public class DotenvEnvironmentPostProcessor implements EnvironmentPostProcessor {
+public class DotenvEnvironmentPostProcessor implements ApplicationListener<ApplicationEnvironmentPreparedEvent> {
 
     private static final String PROPERTY_SOURCE_NAME = ".env";
 
     @Override
-    public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
+    public void onApplicationEvent(ApplicationEnvironmentPreparedEvent event) {
         Dotenv dotenv = Dotenv.configure()
                 .ignoreIfMissing()
                 .load();
@@ -32,6 +32,7 @@ public class DotenvEnvironmentPostProcessor implements EnvironmentPostProcessor 
             return;
         }
 
+        ConfigurableEnvironment environment = event.getEnvironment();
         environment.getPropertySources().addAfter(
                 StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME,
                 new MapPropertySource(PROPERTY_SOURCE_NAME, properties));
