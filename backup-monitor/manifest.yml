@@ -1,0 +1,54 @@
+applications:
+- name: backup-monitor
+  buildpacks:
+  - java_buildpack
+  memory: 512M
+  instances: 1
+  health-check-type: http
+  health-check-http-endpoint: /actuator/health
+  env:
+    SPRING_PROFILES_ACTIVE:    cf
+    TOKEN_ENCRYPTION_KEY:      ((token_encryption_key))
+
+    # Persistence-DB
+    PERSISTENCE_DB_URL:        jdbc:postgresql://pg-host:5432/backup_monitor
+    PERSISTENCE_DB_USERNAME:   backup_monitor
+    PERSISTENCE_DB_PASSWORD:   ((persistence_db_password))
+
+    # Manager 1
+    MANAGER_1_URL:             https://backup-manager-1.apps.example.com
+    MANAGER_1_AGENT_URL:       https://backup-agent-1.apps.internal
+    MANAGER_1_AGENT_USERNAME:  admin
+    MANAGER_1_AGENT_PASSWORD:  ((agent_1_password))
+    MANAGER_1_UAA_ENDPOINT:    https://uaa.sys.example.com
+    MANAGER_1_CF_API_ENDPOINT: https://api.sys.example.com
+    MANAGER_1_SA_USERNAME:     backup-monitor-sa
+    MANAGER_1_SA_PASSWORD:     ((sa_1_password))
+    MANAGER_1_INSTANCE_1_ID:   xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+    MANAGER_1_INSTANCE_1_NAME: pg-prod-orders
+
+    # Sandbox
+    SANDBOX_1_MODE:            existing
+    SANDBOX_1_HOST:            sandbox-pg.apps.internal
+    SANDBOX_1_DB:              restore_test
+    SANDBOX_1_USER:            restore_user
+    SANDBOX_1_PASSWORD:        ((sandbox_1_password))
+
+    # Zeitplan
+    JOB_CHECK_CRON:            "0 0 6 * * *"
+    RESTORE_TEST_CRON:         "0 0 3 * * 0"
+    ORPHAN_CLEANUP_CRON:       "0 0 4 * * *"
+
+    # Retention
+    RETENTION_JOB_CHECK:       "30"
+    RETENTION_RESTORE_TEST:    "10"
+    RETENTION_S3_CHECK:        "30"
+
+    # S3 Verifikation
+    S3_VERIFY_ENABLED:         "true"
+    S3_SIZE_TOLERANCE:         "5"
+    S3_ACCESSIBILITY_BYTES:    "1024"
+
+    # Validierung
+    TABLE_TO_CHECK:            orders
+    MIN_ROW_COUNT:             "500"

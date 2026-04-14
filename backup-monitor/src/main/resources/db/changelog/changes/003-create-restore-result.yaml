@@ -1,0 +1,70 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-create-restore-result
+      author: backup-monitor
+      comment: "Detaillierte Restore-Testergebnisse"
+      changes:
+        - createTable:
+            tableName: restore_test_result
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_restore_test_result
+              - column:
+                  name: monitor_run_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_restore_result_monitor_run
+                    references: monitor_run(id)
+              - column:
+                  name: instance_id
+                  type: VARCHAR(128)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: backup_job_id
+                  type: VARCHAR(256)
+              - column:
+                  name: backup_file_name
+                  type: VARCHAR(512)
+              - column:
+                  name: sandbox_mode
+                  type: VARCHAR(32)
+                  remarks: "EXISTING | PROVISION"
+              - column:
+                  name: restore_status
+                  type: VARCHAR(32)
+                  remarks: "SUCCEEDED | FAILED | TIMEOUT | NO_RESOURCES | SKIPPED"
+              - column:
+                  name: duration_seconds
+                  type: INTEGER
+              - column:
+                  name: validation_results
+                  type: JSONB
+              - column:
+                  name: all_validations_passed
+                  type: BOOLEAN
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+                  defaultValueComputed: NOW()
+        - addCheckConstraint:
+            tableName: restore_test_result
+            constraintName: chk_restore_status
+            constraintBody: "restore_status IN ('SUCCEEDED','FAILED','TIMEOUT','NO_RESOURCES','SKIPPED')"
+        - createIndex:
+            tableName: restore_test_result
+            indexName: idx_restore_result_instance_time
+            columns:
+              - column:
+                  name: instance_id
+              - column:
+                  name: created_at
+                  descending: true

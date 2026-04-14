@@ -1,0 +1,13 @@
+databaseChangeLog:
+  - include:
+      file: db/changelog/changes/001-create-stored-token.yaml
+  - include:
+      file: db/changelog/changes/002-create-monitor-run.yaml
+  - include:
+      file: db/changelog/changes/003-create-restore-result.yaml
+  - include:
+      file: db/changelog/changes/004-create-sandbox-registry.yaml
+  - include:
+      file: db/changelog/changes/005-create-shedlock.yaml
+  - include:
+      file: db/changelog/changes/006-create-s3-check-result.yaml

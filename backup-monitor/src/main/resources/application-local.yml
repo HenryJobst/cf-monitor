@@ -1,0 +1,54 @@
+spring:
+  datasource:
+    url:      jdbc:postgresql://localhost:5432/backup_monitor_dev
+    username: backup_monitor
+    password: backup_monitor
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+backup-monitor:
+  managers:
+    - id:   manager-local
+      name: "Local Dev Manager"
+      url:  ${MANAGER_LOCAL_URL:https://backup-manager-staging.example.com}
+      agent-url:      ${AGENT_LOCAL_URL:https://backup-agent-staging.example.com}
+      agent-username: ${AGENT_LOCAL_USER:admin}
+      agent-password: ${AGENT_LOCAL_PASS:admin}
+      cf:
+        uaa-endpoint:    ${UAA_LOCAL_ENDPOINT:https://uaa.sys-staging.example.com}
+        cf-api-endpoint: ${CF_API_LOCAL_ENDPOINT:https://api.sys-staging.example.com}
+        service-account:
+          username: ${SA_LOCAL_USERNAME}
+          password: ${SA_LOCAL_PASSWORD}
+      instances:
+        - id:   ${LOCAL_INSTANCE_ID:test-instance-001}
+          name: pg-local-test
+
+  restore-test:
+    enabled: ${RESTORE_TEST_ENABLED:false}
+    sandboxes:
+      - instance-id: ${LOCAL_INSTANCE_ID:test-instance-001}
+        mode: existing
+        existing:
+          host:     localhost
+          port:     5433
+          database: restore_sandbox
+          username: sandbox_user
+          password: sandbox_pass
+
+  scheduling:
+    job-check-cron: "*/30 * * * * *"
+
+  retention:
+    job-check-entries:    5
+    restore-test-entries: 3
+    s3-check-entries:     5
+
+  s3-verification:
+    enabled: ${S3_VERIFY_ENABLED:false}
+
+logging:
+  level:
+    de.example.backupmonitor:        DEBUG
+    org.springframework.web.client:  DEBUG

@@ -1,0 +1,62 @@
+spring:
+  datasource:
+    url:                       ${PERSISTENCE_DB_URL}
+    username:                  ${PERSISTENCE_DB_USERNAME}
+    password:                  ${PERSISTENCE_DB_PASSWORD}
+    driver-class-name:         org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto:                validate
+
+backup-monitor:
+  managers:
+    - id:                      manager-prod-1
+      name:                    "Production Manager 1"
+      url:                     ${MANAGER_1_URL}
+      agent-url:               ${MANAGER_1_AGENT_URL}
+      agent-username:          ${MANAGER_1_AGENT_USERNAME}
+      agent-password:          ${MANAGER_1_AGENT_PASSWORD}
+      cf:
+        uaa-endpoint:          ${MANAGER_1_UAA_ENDPOINT}
+        cf-api-endpoint:       ${MANAGER_1_CF_API_ENDPOINT}
+        service-account:
+          username:            ${MANAGER_1_SA_USERNAME}
+          password:            ${MANAGER_1_SA_PASSWORD}
+      instances:
+        - id:                  ${MANAGER_1_INSTANCE_1_ID}
+          name:                ${MANAGER_1_INSTANCE_1_NAME:pg-prod-orders}
+
+  restore-test:
+    sandboxes:
+      - instance-id:           ${MANAGER_1_INSTANCE_1_ID}
+        mode:                  ${SANDBOX_1_MODE:existing}
+        existing:
+          host:                ${SANDBOX_1_HOST:}
+          port:                ${SANDBOX_1_PORT:5432}
+          database:            ${SANDBOX_1_DB:}
+          username:            ${SANDBOX_1_USER:}
+          password:            ${SANDBOX_1_PASSWORD:}
+        provision:
+          org:                 ${CF_ORG:}
+          space:               ${CF_SPACE:}
+          service:             ${SANDBOX_SERVICE:postgresql}
+          plan:                ${SANDBOX_PLAN:small}
+          instance-name-prefix: restore-test-sandbox
+
+    validations:
+      - instance-id:           ${MANAGER_1_INSTANCE_1_ID}
+        queries:
+          - description:       "Schema vorhanden"
+            sql:               "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'"
+            min-result:        1
+          - description:       "Mindestanzahl Datensätze"
+            sql:               "SELECT COUNT(*) FROM ${TABLE_TO_CHECK:orders}"
+            min-result:        ${MIN_ROW_COUNT:100}
+
+  s3-verification:
+    enabled:                   ${S3_VERIFY_ENABLED:true}
+    size-tolerance-percent:    ${S3_SIZE_TOLERANCE:5}
+    accessibility-check-bytes: ${S3_ACCESSIBILITY_BYTES:1024}
+
+  retention:
+    s3-check-entries:          ${RETENTION_S3_CHECK:30}

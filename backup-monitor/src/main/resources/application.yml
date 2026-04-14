@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: backup-monitor
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,info
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  endpoint:
+    health:
+      show-details: always
+
+backup-monitor:
+  encryption:
+    key: ${TOKEN_ENCRYPTION_KEY}
+
+  scheduling:
+    job-check-cron:            ${JOB_CHECK_CRON:0 0 6 * * *}
+    orphan-cleanup-cron:       ${ORPHAN_CLEANUP_CRON:0 0 4 * * *}
+
+  restore-test:
+    enabled:                   ${RESTORE_TEST_ENABLED:true}
+    max-parallel:              ${RESTORE_TEST_MAX_PARALLEL:2}
+    timeout-minutes:           ${RESTORE_TEST_TIMEOUT:45}
+    cron:                      ${RESTORE_TEST_CRON:0 0 3 * * 0}
+
+  s3-verification:
+    enabled:                   ${S3_VERIFY_ENABLED:true}
+    size-tolerance-percent:    ${S3_SIZE_TOLERANCE:5}
+    accessibility-check-bytes: ${S3_ACCESSIBILITY_BYTES:1024}
+
+  retention:
+    job-check-entries:         ${RETENTION_JOB_CHECK:30}
+    restore-test-entries:      ${RETENTION_RESTORE_TEST:10}
+    s3-check-entries:          ${RETENTION_S3_CHECK:30}

@@ -1,0 +1,43 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  liquibase:
+    enabled: true
+
+backup-monitor:
+  encryption:
+    key: "test-encryption-key-32bytes-long!!"
+  managers:
+    - id: test-manager
+      name: "Test Manager"
+      url: http://localhost:${wiremock.server.port:8089}
+      agent-url: http://localhost:${wiremock.server.port:8089}
+      agent-username: admin
+      agent-password: admin
+      cf:
+        uaa-endpoint: http://localhost:${wiremock.server.port:8089}
+        cf-api-endpoint: http://localhost:${wiremock.server.port:8089}
+        service-account:
+          username: test-user
+          password: test-pass
+      instances:
+        - id: test-instance-001
+          name: pg-test
+
+  s3-verification:
+    enabled: true
+    size-tolerance-percent: 10
+    accessibility-check-bytes: 16
+
+  restore-test:
+    enabled: false
+
+  retention:
+    job-check-entries: 5
+    restore-test-entries: 3
+    s3-check-entries: 5
+
+  scheduling:
+    job-check-cron: "-"
+    orphan-cleanup-cron: "-"

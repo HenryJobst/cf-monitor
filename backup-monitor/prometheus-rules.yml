@@ -1,0 +1,86 @@
+groups:
+  - name: backup_monitor_alerts
+    rules:
+      # ── Backup Job Alerts ──────────────────────────────────────────────────
+
+      - alert: BackupJobFailed
+        expr: backup_job_last_status == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backup job failed: {{ $labels.instance_name }}"
+          description: "Latest backup job for {{ $labels.instance_name }} ({{ $labels.instance_id }}) did not succeed."
+
+      - alert: BackupJobTooOld
+        expr: backup_job_last_age_hours > 26
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backup too old: {{ $labels.instance_name }}"
+          description: "Last backup for {{ $labels.instance_name }} is {{ $value | humanizeDuration }} old."
+
+      - alert: BackupPlanMissing
+        expr: backup_plan_active == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backup plan missing or paused: {{ $labels.instance_name }}"
+
+      # ── S3 Verification Alerts ─────────────────────────────────────────────
+
+      - alert: BackupS3FileMissing
+        expr: backup_s3_file_exists == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backup-Datei nicht in S3: {{ $labels.instance_name }}"
+          description: "Backup-Job erfolgreich, aber Datei fehlt im S3-Bucket für {{ $labels.instance_id }}"
+
+      - alert: BackupS3NotAccessible
+        expr: backup_s3_accessible == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backup-Datei in S3 nicht lesbar: {{ $labels.instance_name }}"
+          description: "Range-GET auf S3-Datei schlug fehl für {{ $labels.instance_id }}"
+
+      - alert: BackupS3SizeMismatch
+        expr: backup_s3_size_match == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backup-Dateigröße weicht ab: {{ $labels.instance_name }}"
+          description: "Größenabweichung {{ $value }}% für {{ $labels.instance_id }}"
+
+      - alert: BackupS3CorruptMagicBytes
+        expr: backup_s3_magic_bytes_valid == 0 and backup_s3_accessible == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backup-Datei ggf. kein gzip: {{ $labels.instance_name }}"
+          description: "Datei in S3 startet nicht mit gzip-Magic-Bytes für {{ $labels.instance_id }}"
+
+      # ── Restore Test Alerts ────────────────────────────────────────────────
+
+      - alert: BackupRestoreTestFailed
+        expr: backup_restore_last_status == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Restore test failed: {{ $labels.instance_name }}"
+
+      - alert: BackupRestoreValidationFailed
+        expr: backup_restore_validation_passed == 0 and backup_restore_last_status == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Restore validation queries failed: {{ $labels.instance_name }}"
