@@ -1,5 +1,6 @@
 package de.example.backupmonitor.persistence;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -19,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import(LiquibaseAutoConfiguration.class)
+@Tag("integration")
 @Testcontainers
 class MonitorRunRepositoryTest {
 

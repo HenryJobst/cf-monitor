@@ -3,6 +3,7 @@ package de.example.backupmonitor.validation;
 import de.example.backupmonitor.config.MonitoringConfig;
 import de.example.backupmonitor.sandbox.SandboxConnection;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -15,6 +16,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Tag("integration")
 @Testcontainers
 class DatabaseContentCheckerTest {
 
