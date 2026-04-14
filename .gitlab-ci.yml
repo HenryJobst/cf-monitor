@@ -1,0 +1,55 @@
+stages:
+  - test
+  - release
+
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+  DOCKER_TLS_CERTDIR: "/certs"
+
+cache:
+  key: "$CI_PROJECT_ID"
+  paths:
+    - .m2/repository/
+
+# ── Test ───────────────────────────────────────────────────────────────────────
+# Testcontainers (PostgreSQL, MinIO) brauchen einen laufenden Docker-Daemon.
+test:
+  stage: test
+  image: maven:3.9-eclipse-temurin-21
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_VERIFY: "1"
+    DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+    TESTCONTAINERS_HOST_OVERRIDE: docker
+    TESTCONTAINERS_RYUK_DISABLED: "true"
+  script:
+    - mvn -f backup-monitor/pom.xml verify
+
+# ── Build Image & Push ─────────────────────────────────────────────────────────
+# Verwendet Spring Boot Paketo-Buildpack (kein Dockerfile erforderlich).
+# Image-Tag: Git-Tag-Name bei Tags, kurzer Commit-SHA sonst. Immer auch :latest.
+# Läuft nur auf dem Default-Branch (main) und bei Tags.
+release:
+  stage: release
+  image: maven:3.9-eclipse-temurin-21
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_VERIFY: "1"
+    DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+  script:
+    - TAG=${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}
+    - >
+      mvn -f backup-monitor/pom.xml spring-boot:build-image
+      -DskipTests
+      -Dspring-boot.build-image.imageName="$CI_REGISTRY_IMAGE:$TAG"
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - docker tag "$CI_REGISTRY_IMAGE:$TAG" "$CI_REGISTRY_IMAGE:latest"
+    - docker push "$CI_REGISTRY_IMAGE:$TAG"
+    - docker push "$CI_REGISTRY_IMAGE:latest"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
