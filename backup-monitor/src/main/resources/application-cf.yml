@@ -53,6 +53,10 @@ backup-monitor:
             sql:               "SELECT COUNT(*) FROM ${TABLE_TO_CHECK:orders}"
             min-result:        ${MIN_ROW_COUNT:100}
 
+  actuator:
+    username:                ${ACTUATOR_USERNAME}
+    password:                ${ACTUATOR_PASSWORD}
+
   s3-verification:
     enabled:                   ${S3_VERIFY_ENABLED:true}
     size-tolerance-percent:    ${S3_SIZE_TOLERANCE:5}

@@ -11,6 +11,7 @@ import java.util.List;
 public class MonitoringConfig {
 
     private EncryptionProperties encryption = new EncryptionProperties();
+    private ActuatorProperties actuator = new ActuatorProperties();
     private SchedulingProperties scheduling = new SchedulingProperties();
     private RestoreTestProperties restoreTest = new RestoreTestProperties();
     private S3VerificationProperties s3Verification = new S3VerificationProperties();
@@ -20,6 +21,13 @@ public class MonitoringConfig {
     @Data
     public static class EncryptionProperties {
         private String key;
+        private String salt;
+    }
+
+    @Data
+    public static class ActuatorProperties {
+        private String username;
+        private String password;
     }
 
     @Data

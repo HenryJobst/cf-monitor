@@ -21,7 +21,7 @@ import java.util.regex.Pattern;
 public class DatabaseContentChecker {
 
     private static final Pattern SELECT_ONLY = Pattern.compile(
-            "^\\s*SELECT\\b.*", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+            "^\\s*SELECT\\b[^;]*;?\\s*$", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 
     private final MonitoringConfig config;
 

@@ -35,7 +35,7 @@ backup-monitor:
           port:     5433
           database: restore_sandbox
           username: ${SANDBOX_LOCAL_USER:sandbox_user}
-          password: ${SANDBOX_LOCAL_PASS}
+          password: ${SANDBOX_LOCAL_PASS:sandbox_pass}
 
   scheduling:
     job-check-cron: "*/30 * * * * *"

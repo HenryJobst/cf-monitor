@@ -21,11 +21,16 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+      roles: ACTUATOR
 
 backup-monitor:
   encryption:
     key: ${TOKEN_ENCRYPTION_KEY}
     salt: ${TOKEN_ENCRYPTION_SALT}
+
+  actuator:
+    username: ${ACTUATOR_USERNAME}
+    password: ${ACTUATOR_PASSWORD}
 
   scheduling:
     job-check-cron:            ${JOB_CHECK_CRON:0 0 6 * * *}
