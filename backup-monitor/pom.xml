@@ -24,6 +24,7 @@
         <wiremock.version>3.13.1</wiremock.version>
         <testcontainers.version>2.0.4</testcontainers.version>
         <docker-java.version>3.7.1</docker-java.version>
+        <dotenv-java.version>3.1.0</dotenv-java.version>
     </properties>
 
     <dependencyManagement>
@@ -133,6 +134,13 @@
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <version>33.5.0-jre</version>
+        </dependency>
+
+        <!-- .env support für lokale Entwicklung -->
+        <dependency>
+            <groupId>io.github.cdimascio</groupId>
+            <artifactId>dotenv-java</artifactId>
+            <version>${dotenv-java.version}</version>
         </dependency>
 
         <!-- Lombok -->

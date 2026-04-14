@@ -1,0 +1,22 @@
+# Maven
+target/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Lokale Konfiguration (enthält Secrets)
+.env
+backup-monitor/.env

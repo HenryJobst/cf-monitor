@@ -1,0 +1,2 @@
+org.springframework.boot.env.EnvironmentPostProcessor=\
+  de.example.backupmonitor.config.DotenvEnvironmentPostProcessor
