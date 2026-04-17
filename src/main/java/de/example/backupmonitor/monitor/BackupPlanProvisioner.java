@@ -45,24 +45,9 @@ public class BackupPlanProvisioner {
             return Optional.empty();
         }
 
-        log.info("Kein Backup-Plan für Instanz {} – suche S3-Service (label='{}') in Space {}",
-                instanceId, ap.getS3ServiceLabel(), spaceGuid);
-
-        List<CfApiClient.S3ServiceCandidate> candidates = cfApiClient.findServiceInstancesByOffering(
-                managerId, spaceGuid, ap.getS3ServiceLabel());
-
-        if (candidates.isEmpty()) {
-            log.info("Kein S3-Service (label='{}') in Space {} gefunden – kein Auto-Provisioning",
-                    ap.getS3ServiceLabel(), spaceGuid);
-            return Optional.empty();
-        }
-
-        CfApiClient.S3ServiceCandidate s3 = candidates.get(0);
-        if (candidates.size() > 1) {
-            log.warn("Mehrere S3-Services gefunden – verwende '{}' (guid: {})", s3.name(), s3.guid());
-        } else {
-            log.info("S3-Service '{}' gefunden – richte Backup-Plan ein", s3.name());
-        }
+        CfApiClient.S3ServiceCandidate s3 = findS3Service(managerId, manager, spaceGuid, ap, instanceId)
+                .orElse(null);
+        if (s3 == null) return Optional.empty();
 
         try {
             S3FileDestination destination = cfApiClient.getS3Credentials(
@@ -82,6 +67,41 @@ public class BackupPlanProvisioner {
             log.error("Auto-Provisioning fehlgeschlagen für Instanz {}: {}", instanceId, e.getMessage(), e);
             return Optional.empty();
         }
+    }
+
+    private Optional<CfApiClient.S3ServiceCandidate> findS3Service(
+            String managerId, MonitoringConfig.ManagerConfig manager,
+            String spaceGuid, MonitoringConfig.AutoProvisionProperties ap, String instanceId) {
+
+        String instanceName = manager.getCf().getS3InstanceName();
+        if (instanceName != null && !instanceName.isBlank()) {
+            log.info("Kein Backup-Plan für Instanz {} – suche S3-Service '{}' in Space {}",
+                    instanceId, instanceName, spaceGuid);
+            Optional<CfApiClient.S3ServiceCandidate> result =
+                    cfApiClient.findServiceInstanceByName(managerId, spaceGuid, instanceName);
+            if (result.isPresent()) {
+                log.info("S3-Service '{}' gefunden – richte Backup-Plan ein", result.get().name());
+            } else {
+                log.info("S3-Service '{}' in Space {} nicht gefunden – kein Auto-Provisioning",
+                        instanceName, spaceGuid);
+            }
+            return result;
+        }
+
+        log.info("Kein Backup-Plan für Instanz {} – suche S3-Service (label='{}') in Space {}",
+                instanceId, ap.getS3ServiceLabel(), spaceGuid);
+        List<CfApiClient.S3ServiceCandidate> candidates =
+                cfApiClient.findServiceInstancesByOffering(managerId, spaceGuid, ap.getS3ServiceLabel());
+        if (candidates.isEmpty()) {
+            log.info("Kein S3-Service (label='{}') in Space {} gefunden – kein Auto-Provisioning",
+                    ap.getS3ServiceLabel(), spaceGuid);
+            return Optional.empty();
+        }
+        if (candidates.size() > 1) {
+            log.warn("Mehrere S3-Services (label='{}') gefunden – verwende '{}'",
+                    ap.getS3ServiceLabel(), candidates.get(0).name());
+        }
+        return Optional.of(candidates.get(0));
     }
 
     private void validateDestination(S3FileDestination dest, String serviceName) {

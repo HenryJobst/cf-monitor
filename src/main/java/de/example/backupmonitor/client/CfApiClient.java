@@ -10,9 +10,12 @@ import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Component
@@ -95,63 +98,72 @@ public class CfApiClient {
     /**
      * Sucht managed Service-Instances im angegebenen Space, deren Service-Offering
      * dem konfigurierten S3-Label entspricht.
-     * Nutzt CF v3 include=service_plan um die Offering-Namen inline zu erhalten.
+     * Führt zwei Requests aus: erst Plan-GUIDs für das Offering ermitteln,
+     * dann Instanzen im Space nach diesen Plans filtern.
      */
     @SuppressWarnings("unchecked")
     public List<S3ServiceCandidate> findServiceInstancesByOffering(
             String managerId, String spaceGuid, String serviceOfferingLabel) {
-        String url = cfApiEndpoint(managerId)
-                + "/v3/service_instances?space_guids=" + spaceGuid
-                + "&type=managed"
-                + "&include=service_plan"
-                + "&fields[service_plan.service_offering]=name,guid";
         try {
-            Map<?, ?> response = get(managerId, url, Map.class);
-            if (response == null) return List.of();
+            // Schritt 1: Plan-GUIDs für das gewünschte Service-Offering ermitteln
+            String plansUrl = cfApiEndpoint(managerId)
+                    + "/v3/service_plans?service_offering_names=" + encode(serviceOfferingLabel);
+            Map<?, ?> plansResponse = get(managerId, plansUrl, Map.class);
+            if (plansResponse == null) return List.of();
 
-            // Baue Map: planGuid → offeringName aus dem included-Block
-            Map<String, String> planOfferingNames = new java.util.HashMap<>();
-            var included = (Map<?, ?>) response.get("included");
-            if (included != null) {
-                var plans = (List<?>) included.get("service_plans");
-                var offerings = (List<?>) included.get("service_offerings");
-                Map<String, String> offeringNames = new java.util.HashMap<>();
-                if (offerings != null) {
-                    for (var o : offerings) {
-                        var om = (Map<?, ?>) o;
-                        offeringNames.put((String) om.get("guid"), (String) om.get("name"));
-                    }
-                }
-                if (plans != null) {
-                    for (var p : plans) {
-                        var pm = (Map<?, ?>) p;
-                        String planGuid = (String) pm.get("guid");
-                        var offeringRel = (Map<?, ?>) ((Map<?, ?>) pm.get("relationships"))
-                                .get("service_offering");
-                        String offeringGuid = (String) ((Map<?, ?>) offeringRel.get("data")).get("guid");
-                        planOfferingNames.put(planGuid, offeringNames.getOrDefault(offeringGuid, ""));
-                    }
-                }
+            var plans = (List<?>) plansResponse.get("resources");
+            if (plans == null || plans.isEmpty()) {
+                log.info("Kein Service-Offering mit Label '{}' gefunden", serviceOfferingLabel);
+                return List.of();
             }
+
+            String planGuids = plans.stream()
+                    .map(p -> (String) ((Map<?, ?>) p).get("guid"))
+                    .collect(Collectors.joining(","));
+
+            // Schritt 2: Instanzen im Space nach diesen Plans filtern
+            String instancesUrl = cfApiEndpoint(managerId)
+                    + "/v3/service_instances?space_guids=" + spaceGuid
+                    + "&type=managed"
+                    + "&service_plan_guids=" + planGuids;
+            Map<?, ?> response = get(managerId, instancesUrl, Map.class);
+            if (response == null) return List.of();
 
             List<S3ServiceCandidate> result = new ArrayList<>();
             var resources = (List<?>) response.get("resources");
             if (resources == null) return List.of();
             for (var res : resources) {
                 var inst = (Map<?, ?>) res;
-                String instGuid = (String) inst.get("guid");
-                String instName = (String) inst.get("name");
-                var planRel = (Map<?, ?>) ((Map<?, ?>) inst.get("relationships")).get("service_plan");
-                String planGuid = (String) ((Map<?, ?>) planRel.get("data")).get("guid");
-                String offeringName = planOfferingNames.getOrDefault(planGuid, "");
-                if (serviceOfferingLabel.equalsIgnoreCase(offeringName)) {
-                    result.add(new S3ServiceCandidate(instGuid, instName));
-                }
+                result.add(new S3ServiceCandidate(
+                        (String) inst.get("guid"),
+                        (String) inst.get("name")));
             }
             return result;
         } catch (Exception e) {
             log.warn("Failed to list S3 service instances in space {}: {}", spaceGuid, e.getMessage());
             return List.of();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public Optional<S3ServiceCandidate> findServiceInstanceByName(
+            String managerId, String spaceGuid, String instanceName) {
+        try {
+            String url = cfApiEndpoint(managerId)
+                    + "/v3/service_instances?names=" + encode(instanceName)
+                    + "&space_guids=" + spaceGuid
+                    + "&type=managed";
+            Map<?, ?> response = get(managerId, url, Map.class);
+            if (response == null) return Optional.empty();
+            var resources = (List<?>) response.get("resources");
+            if (resources == null || resources.isEmpty()) return Optional.empty();
+            var inst = (Map<?, ?>) resources.get(0);
+            return Optional.of(new S3ServiceCandidate(
+                    (String) inst.get("guid"),
+                    (String) inst.get("name")));
+        } catch (Exception e) {
+            log.warn("Failed to find service instance '{}' in space {}: {}", instanceName, spaceGuid, e.getMessage());
+            return Optional.empty();
         }
     }
 
@@ -301,6 +313,10 @@ public class CfApiClient {
         String ep = cfApiEndpoints.get(managerId);
         if (ep == null) throw new IllegalArgumentException("No CF API endpoint for: " + managerId);
         return ep;
+    }
+
+    private static String encode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     public record ServiceKeyCredentials(String host, int port, String database,

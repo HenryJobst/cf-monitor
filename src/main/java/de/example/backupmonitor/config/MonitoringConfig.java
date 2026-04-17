@@ -89,6 +89,8 @@ public class MonitoringConfig {
         private String cfApiEndpoint;
         /** GUID des CF-Space, in dem nach S3-Diensten gesucht wird (für Auto-Provisioning). */
         private String spaceGuid;
+        /** Name der S3-Service-Instanz für Auto-Provisioning. Übersteuert die Suche per Offering-Label. */
+        private String s3InstanceName;
         private ServiceAccountConfig serviceAccount = new ServiceAccountConfig();
     }
 
