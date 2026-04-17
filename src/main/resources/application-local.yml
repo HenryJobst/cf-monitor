@@ -1,8 +1,8 @@
 spring:
-  datasource:
-    url:      jdbc:postgresql://localhost:5432/backup_monitor_dev
-    username: backup_monitor
-    password: backup_monitor
+  docker:
+    compose:
+      enabled: true
+      lifecycle-management: start_only
   jpa:
     hibernate:
       ddl-auto: validate

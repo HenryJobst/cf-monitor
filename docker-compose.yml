@@ -1,0 +1,28 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: backup_monitor_dev
+      POSTGRES_USER: backup_monitor
+      POSTGRES_PASSWORD: backup_monitor
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U backup_monitor -d backup_monitor_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  sandbox-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: restore_sandbox
+      POSTGRES_USER: sandbox_user
+      POSTGRES_PASSWORD: sandbox_pass
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sandbox_user -d restore_sandbox"]
+      interval: 5s
+      timeout: 5s
+      retries: 10

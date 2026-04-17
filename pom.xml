@@ -91,8 +91,8 @@
 
         <!-- Liquibase -->
         <dependency>
-            <groupId>org.liquibase</groupId>
-            <artifactId>liquibase-core</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-liquibase</artifactId>
         </dependency>
 
         <!-- Validation -->
@@ -136,6 +136,13 @@
             <version>33.5.0-jre</version>
         </dependency>
 
+        <!-- Docker Compose support für lokale Entwicklung -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-docker-compose</artifactId>
+            <optional>true</optional>
+        </dependency>
+
         <!-- .env support für lokale Entwicklung -->
         <dependency>
             <groupId>io.github.cdimascio</groupId>
@@ -159,11 +166,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-liquibase</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

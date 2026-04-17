@@ -1,4 +1,7 @@
 spring:
+  docker:
+    compose:
+      enabled: false
   datasource:
     url:                       ${PERSISTENCE_DB_URL}
     username:                  ${PERSISTENCE_DB_USERNAME}
