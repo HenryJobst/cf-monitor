@@ -113,6 +113,20 @@ Each entry represents one OSB backup manager instance.
 | `cf.service-account.password` | `MANAGER_1_SA_PASSWORD` | CF service account password |
 | `instances[].id` | `MANAGER_1_INSTANCE_1_ID` | CF service instance GUID |
 | `instances[].name` | `MANAGER_1_INSTANCE_1_NAME` | Human-readable instance name |
+| `instances[].s3-instance-name` | `MANAGER_1_INSTANCE_1_S3_NAME` | Name of the S3 service instance for this backup (overrides offering-label search) |
+| `instances[].s3-service-plan` | `MANAGER_1_INSTANCE_1_S3_PLAN` | CF service plan for S3 (e.g. `5gb`); required only if the instance should be created automatically |
+
+#### Auto-Provisioning (`cf-backup-monitor.auto-provision`)
+
+Automatically creates a backup plan when none exists for a configured service instance.
+
+| Property | Env variable | Default | Description |
+|---|---|---|---|
+| `cf-backup-monitor.auto-provision.enabled` | `AUTO_PROVISION_ENABLED` | `false` | Enable auto-provisioning |
+| `cf-backup-monitor.auto-provision.s3-service-label` | `AUTO_PROVISION_S3_LABEL` | `s3` | CF service offering name of the S3 store (e.g. `ecs-bucket`) |
+| `cf-backup-monitor.auto-provision.backup-schedule` | `AUTO_PROVISION_SCHEDULE` | `0 2 * * *` | Cron schedule for the new backup plan (5-field) |
+
+Prerequisites: `cf.space-guid` must be set per manager. If `instances[].s3-instance-name` is set and the instance does not exist yet, it is created automatically when `instances[].s3-service-plan` is also configured.
 
 #### S3 Verification
 
@@ -375,6 +389,21 @@ Jeder Eintrag repräsentiert eine OSB-Backup-Manager-Instanz.
 | `cf.service-account.password` | `MANAGER_1_SA_PASSWORD` | CF-Service-Account-Passwort |
 | `instances[].id` | `MANAGER_1_INSTANCE_1_ID` | CF-Service-Instanz-GUID |
 | `instances[].name` | `MANAGER_1_INSTANCE_1_NAME` | Menschenlesbarer Instanzname |
+| `instances[].s3-instance-name` | `MANAGER_1_INSTANCE_1_S3_NAME` | Name der S3-Service-Instanz für das Auto-Provisioning (optional) |
+| `instances[].s3-service-plan` | `MANAGER_1_INSTANCE_1_S3_PLAN` | CF-Service-Plan für das automatische Anlegen der S3-Instanz (optional) |
+
+#### Auto-Provisioning
+
+Wenn kein Backup-Plan für eine Instanz existiert, kann die Anwendung automatisch einen anlegen.
+
+| Eigenschaft | Umgebungsvariable | Standard | Beschreibung |
+|---|---|---|---|
+| `cf-backup-monitor.auto-provision.enabled` | `AUTO_PROVISION_ENABLED` | `false` | Auto-Provisioning aktivieren |
+| `cf-backup-monitor.auto-provision.s3-service-label` | `AUTO_PROVISION_S3_LABEL` | `s3` | CF-Service-Angebots-Label für die S3-Suche im Space |
+| `cf-backup-monitor.auto-provision.backup-schedule` | `AUTO_PROVISION_SCHEDULE` | `0 2 * * *` | Cron-Ausdruck für den neuen Backup-Plan |
+
+Voraussetzungen: `auto-provision.enabled=true` und `cf.space-guid` je Manager müssen gesetzt sein.
+Ist `instances[].s3-instance-name` gesetzt, wird genau diese S3-Instanz gesucht (bzw. bei konfiguriertem `s3-service-plan` automatisch angelegt).
 
 #### S3-Verifikation
 
