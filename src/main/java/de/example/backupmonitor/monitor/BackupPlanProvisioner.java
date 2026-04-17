@@ -9,12 +9,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
 /**
  * Legt automatisch einen Backup-Plan an, wenn für eine Service-Instanz keiner existiert
- * und im konfigurierten CF-Space ein S3-Service gefunden wird.
+ * und im konfigurierten CF-Space ein S3-Service gefunden (oder angelegt) wird.
  *
  * <p>Aktivierung: {@code cf-backup-monitor.auto-provision.enabled=true} + {@code cf.space-guid} je Manager.
  */
@@ -22,6 +23,8 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @Slf4j
 public class BackupPlanProvisioner {
+
+    private static final Duration S3_PROVISION_TIMEOUT = Duration.ofMinutes(10);
 
     private final MonitoringConfig config;
     private final CfApiClient cfApiClient;
@@ -45,8 +48,10 @@ public class BackupPlanProvisioner {
             return Optional.empty();
         }
 
+        MonitoringConfig.ServiceInstanceConfig instance = findInstance(manager, instanceId);
+
         Optional<CfApiClient.S3ServiceCandidate> s3Opt =
-                findS3Service(managerId, manager, spaceGuid, ap, instanceId);
+                findOrCreateS3Service(managerId, manager, instance, spaceGuid, ap, instanceId);
         if (s3Opt.isEmpty()) return Optional.empty();
         CfApiClient.S3ServiceCandidate s3 = s3Opt.get();
 
@@ -70,23 +75,35 @@ public class BackupPlanProvisioner {
         }
     }
 
-    private Optional<CfApiClient.S3ServiceCandidate> findS3Service(
+    private Optional<CfApiClient.S3ServiceCandidate> findOrCreateS3Service(
             String managerId, MonitoringConfig.ManagerConfig manager,
+            MonitoringConfig.ServiceInstanceConfig instance,
             String spaceGuid, MonitoringConfig.AutoProvisionProperties ap, String instanceId) {
 
-        String instanceName = manager.getCf().getS3InstanceName();
-        if (instanceName != null && !instanceName.isBlank()) {
+        String s3Name = instance.getS3InstanceName();
+        if (s3Name != null && !s3Name.isBlank()) {
             log.info("Kein Backup-Plan für Instanz {} – suche S3-Service '{}' in Space {}",
-                    instanceId, instanceName, spaceGuid);
-            Optional<CfApiClient.S3ServiceCandidate> result =
-                    cfApiClient.findServiceInstanceByName(managerId, spaceGuid, instanceName);
-            if (result.isPresent()) {
-                log.info("S3-Service '{}' gefunden – richte Backup-Plan ein", result.get().name());
-            } else {
-                log.info("S3-Service '{}' in Space {} nicht gefunden – kein Auto-Provisioning",
-                        instanceName, spaceGuid);
+                    instanceId, s3Name, spaceGuid);
+            Optional<CfApiClient.S3ServiceCandidate> found =
+                    cfApiClient.findServiceInstanceByName(managerId, spaceGuid, s3Name);
+            if (found.isPresent()) {
+                log.info("S3-Service '{}' gefunden – richte Backup-Plan ein", s3Name);
+                return found;
             }
-            return result;
+
+            String s3Plan = instance.getS3ServicePlan();
+            if (s3Plan == null || s3Plan.isBlank()) {
+                log.info("S3-Service '{}' nicht gefunden und kein s3-service-plan konfiguriert – "
+                        + "kein Auto-Provisioning", s3Name);
+                return Optional.empty();
+            }
+
+            log.info("S3-Service '{}' nicht gefunden – lege an (Offering: '{}', Plan: '{}')",
+                    s3Name, ap.getS3ServiceLabel(), s3Plan);
+            cfApiClient.createServiceInstance(managerId, s3Name, ap.getS3ServiceLabel(), s3Plan, spaceGuid);
+            cfApiClient.pollUntilReady(managerId, s3Name, S3_PROVISION_TIMEOUT);
+            log.info("S3-Service '{}' bereit", s3Name);
+            return cfApiClient.findServiceInstanceByName(managerId, spaceGuid, s3Name);
         }
 
         log.info("Kein Backup-Plan für Instanz {} – suche S3-Service (label='{}') in Space {}",
@@ -121,5 +138,14 @@ public class BackupPlanProvisioner {
                 .filter(m -> managerId.equals(m.getId()))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Manager nicht gefunden: " + managerId));
+    }
+
+    private MonitoringConfig.ServiceInstanceConfig findInstance(
+            MonitoringConfig.ManagerConfig manager, String instanceId) {
+        return manager.getInstances().stream()
+                .filter(i -> instanceId.equals(i.getId()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Instanz nicht gefunden: " + instanceId));
     }
 }

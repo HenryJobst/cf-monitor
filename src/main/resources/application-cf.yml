@@ -29,6 +29,8 @@ cf-backup-monitor:
       instances:
         - id:                  ${MANAGER_1_INSTANCE_1_ID}
           name:                ${MANAGER_1_INSTANCE_1_NAME:pg-prod-orders}
+          s3-instance-name:    ${MANAGER_1_INSTANCE_1_S3_NAME:}
+          s3-service-plan:     ${MANAGER_1_INSTANCE_1_S3_PLAN:}
 
   restore-test:
     sandboxes:

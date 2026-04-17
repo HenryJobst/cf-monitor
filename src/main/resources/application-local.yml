@@ -19,13 +19,14 @@ cf-backup-monitor:
         uaa-endpoint:    ${UAA_LOCAL_ENDPOINT:https://uaa.sys-staging.example.com}
         cf-api-endpoint: ${CF_API_LOCAL_ENDPOINT:https://api.sys-staging.example.com}
         space-guid:      ${LOCAL_CF_SPACE_GUID:}
-        s3-instance-name: ${LOCAL_S3_INSTANCE_NAME:}
         service-account:
           username: ${SA_LOCAL_USERNAME}
           password: ${SA_LOCAL_PASSWORD}
       instances:
-        - id:   ${LOCAL_INSTANCE_ID:test-instance-001}
-          name: pg-local-test
+        - id:               ${LOCAL_INSTANCE_ID:test-instance-001}
+          name:             pg-local-test
+          s3-instance-name: ${LOCAL_S3_INSTANCE_NAME:}
+          s3-service-plan:  ${LOCAL_S3_SERVICE_PLAN:}
 
   restore-test:
     enabled: ${RESTORE_TEST_ENABLED:false}

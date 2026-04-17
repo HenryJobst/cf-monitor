@@ -89,8 +89,6 @@ public class MonitoringConfig {
         private String cfApiEndpoint;
         /** GUID des CF-Space, in dem nach S3-Diensten gesucht wird (für Auto-Provisioning). */
         private String spaceGuid;
-        /** Name der S3-Service-Instanz für Auto-Provisioning. Übersteuert die Suche per Offering-Label. */
-        private String s3InstanceName;
         private ServiceAccountConfig serviceAccount = new ServiceAccountConfig();
     }
 
@@ -104,6 +102,10 @@ public class MonitoringConfig {
     public static class ServiceInstanceConfig {
         private String id;
         private String name;
+        /** Name der S3-Service-Instanz für dieses Backup. Übersteuert die Suche per Offering-Label. */
+        private String s3InstanceName;
+        /** CF-Service-Plan für die S3-Instanz (z.B. "5gb"). Wird genutzt, falls die Instanz neu angelegt werden muss. */
+        private String s3ServicePlan;
     }
 
     @Data
