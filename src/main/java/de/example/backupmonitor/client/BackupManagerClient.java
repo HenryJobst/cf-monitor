@@ -92,11 +92,13 @@ public class BackupManagerClient {
      * @param schedule         Cron-Ausdruck (5-stellig, z.B. "0 2 * * *" für täglich 02:00)
      * @param retentionStyle   ALL, DAYS, FILES oder HOURS
      * @param retentionPeriod  Anzahl aufzubewahrender Einheiten (muss &gt; 0 sein)
+     * @param timezone         Zeitzone für den Schedule (z.B. "Europe/Berlin", "UTC")
      */
     public Optional<BackupPlan> createBackupPlan(String managerId, String instanceId,
                                                    String schedule,
                                                    String retentionStyle,
                                                    int retentionPeriod,
+                                                   String timezone,
                                                    S3FileDestination s3) {
         FileDestination fileDest = getOrCreateFileDestination(managerId, instanceId, s3).orElse(null);
         if (fileDest == null) {
@@ -117,6 +119,7 @@ public class BackupManagerClient {
             body.put("frequency", toQuartzCron(schedule));
             body.put("retentionStyle", retentionStyle);
             body.put("retentionPeriod", retentionPeriod);
+            body.put("timezone", timezone);
             body.put("fileDestination", destBody);
 
             BackupPlan plan = ep.restClient.post()

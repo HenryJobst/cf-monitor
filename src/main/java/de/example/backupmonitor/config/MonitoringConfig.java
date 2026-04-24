@@ -43,6 +43,8 @@ public class MonitoringConfig {
         private String retentionStyle = "FILES";
         /** Anzahl aufzubewahrender Einheiten (muss > 0 sein). */
         private int retentionPeriod = 7;
+        /** Zeitzone für den Backup-Schedule (z.B. "Europe/Berlin"). */
+        private String timezone = "UTC";
     }
 
     @Data

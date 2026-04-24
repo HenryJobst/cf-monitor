@@ -62,7 +62,8 @@ public class BackupPlanProvisioner {
 
             Optional<BackupPlan> plan = managerClient.createBackupPlan(
                     managerId, instanceId, ap.getBackupSchedule(),
-                    ap.getRetentionStyle(), ap.getRetentionPeriod(), destination);
+                    ap.getRetentionStyle(), ap.getRetentionPeriod(),
+                    ap.getTimezone(), destination);
 
             plan.ifPresentOrElse(
                     p -> log.info("Backup-Plan erfolgreich angelegt für Instanz {} "
