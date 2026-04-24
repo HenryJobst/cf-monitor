@@ -99,6 +99,7 @@ public class BackupManagerClient {
                                                    String retentionStyle,
                                                    int retentionPeriod,
                                                    String timezone,
+                                                   String planName,
                                                    S3FileDestination s3) {
         FileDestination fileDest = getOrCreateFileDestination(managerId, instanceId, s3).orElse(null);
         if (fileDest == null) {
@@ -120,6 +121,7 @@ public class BackupManagerClient {
             body.put("retentionStyle", retentionStyle);
             body.put("retentionPeriod", retentionPeriod);
             body.put("timezone", timezone);
+            body.put("name", planName);
             body.put("fileDestination", destBody);
 
             BackupPlan plan = ep.restClient.post()

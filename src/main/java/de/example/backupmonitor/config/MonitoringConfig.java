@@ -45,6 +45,8 @@ public class MonitoringConfig {
         private int retentionPeriod = 7;
         /** Zeitzone für den Backup-Schedule (z.B. "Europe/Berlin"). */
         private String timezone = "UTC";
+        /** Standard-Name für automatisch angelegte Backup-Pläne. */
+        private String planName = "Auto-Backup";
     }
 
     @Data

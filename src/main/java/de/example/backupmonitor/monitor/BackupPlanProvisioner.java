@@ -60,10 +60,12 @@ public class BackupPlanProvisioner {
                     managerId, s3.guid(), s3.name());
             validateDestination(destination, s3.name());
 
+            String planName = (instance.getName() != null && !instance.getName().isBlank())
+                    ? instance.getName() : ap.getPlanName();
             Optional<BackupPlan> plan = managerClient.createBackupPlan(
                     managerId, instanceId, ap.getBackupSchedule(),
                     ap.getRetentionStyle(), ap.getRetentionPeriod(),
-                    ap.getTimezone(), destination);
+                    ap.getTimezone(), planName, destination);
 
             plan.ifPresentOrElse(
                     p -> log.info("Backup-Plan erfolgreich angelegt für Instanz {} "
