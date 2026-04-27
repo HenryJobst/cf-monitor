@@ -15,8 +15,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -40,6 +39,11 @@ class BackupPlanProvisionerTest {
         MonitoringConfig.CfConfig cf = new MonitoringConfig.CfConfig();
         cf.setSpaceGuid(SPACE_GUID);
         manager.setCf(cf);
+
+        MonitoringConfig.ServiceInstanceConfig instance = new MonitoringConfig.ServiceInstanceConfig();
+        instance.setId(INSTANCE_ID);
+        manager.setInstances(List.of(instance));
+
         config.setManagers(List.of(manager));
 
         provisioner = new BackupPlanProvisioner(config, cfApiClient, managerClient);
@@ -109,7 +113,7 @@ class BackupPlanProvisionerTest {
         when(cfApiClient.findServiceInstancesByOffering(MANAGER_ID, SPACE_GUID, "s3"))
                 .thenReturn(List.of(s3));
         when(cfApiClient.getS3Credentials(MANAGER_ID, "s3-guid", "my-s3")).thenReturn(dest);
-        when(managerClient.createBackupPlan(MANAGER_ID, INSTANCE_ID, "0 2 * * *", dest))
+        when(managerClient.createBackupPlan(any(), any(), any(), any(), anyInt(), any(), any(), any(), any()))
                 .thenReturn(Optional.of(plan));
 
         Optional<BackupPlan> result = provisioner.tryProvision(MANAGER_ID, INSTANCE_ID);
@@ -125,12 +129,12 @@ class BackupPlanProvisionerTest {
         when(cfApiClient.findServiceInstancesByOffering(any(), any(), any()))
                 .thenReturn(List.of(s3));
         when(cfApiClient.getS3Credentials(any(), any(), any())).thenReturn(buildDestination());
-        when(managerClient.createBackupPlan(any(), any(), any(), any()))
+        when(managerClient.createBackupPlan(any(), any(), any(), any(), anyInt(), any(), any(), any(), any()))
                 .thenReturn(Optional.empty());
 
         provisioner.tryProvision(MANAGER_ID, INSTANCE_ID);
 
-        verify(managerClient).createBackupPlan(any(), any(), eq("0 2 * * *"), any());
+        verify(managerClient).createBackupPlan(any(), any(), eq("0 2 * * *"), any(), anyInt(), any(), any(), any(), any());
     }
 
     @Test
@@ -142,12 +146,12 @@ class BackupPlanProvisionerTest {
         when(cfApiClient.findServiceInstancesByOffering(any(), any(), any()))
                 .thenReturn(List.of(s3));
         when(cfApiClient.getS3Credentials(any(), any(), any())).thenReturn(buildDestination());
-        when(managerClient.createBackupPlan(any(), any(), any(), any()))
+        when(managerClient.createBackupPlan(any(), any(), any(), any(), anyInt(), any(), any(), any(), any()))
                 .thenReturn(Optional.empty());
 
         provisioner.tryProvision(MANAGER_ID, INSTANCE_ID);
 
-        verify(managerClient).createBackupPlan(any(), any(), eq("0 4 * * 0"), any());
+        verify(managerClient).createBackupPlan(any(), any(), eq("0 4 * * 0"), any(), anyInt(), any(), any(), any(), any());
     }
 
     // ── multiple candidates ────────────────────────────────────────────────────
@@ -162,7 +166,7 @@ class BackupPlanProvisionerTest {
                 .thenReturn(List.of(s3a, s3b));
         when(cfApiClient.getS3Credentials(MANAGER_ID, "guid-a", "s3-a"))
                 .thenReturn(buildDestination());
-        when(managerClient.createBackupPlan(any(), any(), any(), any()))
+        when(managerClient.createBackupPlan(any(), any(), any(), any(), anyInt(), any(), any(), any(), any()))
                 .thenReturn(Optional.empty());
 
         provisioner.tryProvision(MANAGER_ID, INSTANCE_ID);
@@ -224,7 +228,7 @@ class BackupPlanProvisionerTest {
         when(cfApiClient.findServiceInstancesByOffering(any(), any(), any()))
                 .thenReturn(List.of(new CfApiClient.S3ServiceCandidate("g", "n")));
         when(cfApiClient.getS3Credentials(any(), any(), any())).thenReturn(buildDestination());
-        when(managerClient.createBackupPlan(any(), any(), any(), any()))
+        when(managerClient.createBackupPlan(any(), any(), any(), any(), anyInt(), any(), any(), any(), any()))
                 .thenReturn(Optional.empty());
 
         assertThat(provisioner.tryProvision(MANAGER_ID, INSTANCE_ID)).isEmpty();

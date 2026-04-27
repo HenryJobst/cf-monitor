@@ -150,13 +150,15 @@ class BackupManagerClientTest {
 
     @Test
     void createBackupPlan_success_returnsCreatedPlan() {
+        stubFileDestinations();
         stubFor(post(urlPathEqualTo("/backupPlans"))
                 .willReturn(okJson("""
                         {"id":"plan-new","paused":false,"active":true}
                         """)));
 
         Optional<BackupPlan> result = client.createBackupPlan(
-                MANAGER_ID, INSTANCE_ID, "0 2 * * *", buildS3Destination());
+                MANAGER_ID, INSTANCE_ID, "0 2 * * *", "FILES", 7, "UTC", "Auto-Backup",
+                List.of(), buildS3Destination());
 
         assertThat(result).isPresent();
         assertThat(result.get().getIdAsString()).isEqualTo("plan-new");
@@ -165,39 +167,49 @@ class BackupManagerClientTest {
 
     @Test
     void createBackupPlan_serverError_returnsEmpty() {
+        stubFileDestinations();
         stubFor(post(urlPathEqualTo("/backupPlans"))
                 .willReturn(serverError()));
 
         assertThat(client.createBackupPlan(
-                MANAGER_ID, INSTANCE_ID, "0 2 * * *", buildS3Destination())).isEmpty();
+                MANAGER_ID, INSTANCE_ID, "0 2 * * *", "FILES", 7, "UTC", "Auto-Backup",
+                List.of(), buildS3Destination())).isEmpty();
     }
 
     @Test
     void createBackupPlan_sendsCorrectPayload() {
+        stubFileDestinations();
         stubFor(post(urlPathEqualTo("/backupPlans"))
                 .willReturn(okJson("""
                         {"id":"plan-new","paused":false}
                         """)));
 
         S3FileDestination dest = buildS3Destination();
-        client.createBackupPlan(MANAGER_ID, INSTANCE_ID, "0 2 * * *", dest);
+        client.createBackupPlan(MANAGER_ID, INSTANCE_ID, "0 2 * * *", "FILES", 7, "UTC",
+                "Auto-Backup", List.of(), dest);
 
         verify(postRequestedFor(urlPathEqualTo("/backupPlans"))
                 .withHeader("Authorization", equalTo("Bearer test-bearer-token"))
                 .withHeader("Content-Type", containing("application/json"))
-                .withRequestBody(matchingJsonPath("$.instance_id", equalTo(INSTANCE_ID)))
-                .withRequestBody(matchingJsonPath("$.schedule", equalTo("0 2 * * *")))
-                .withRequestBody(matchingJsonPath("$.destination.type", equalTo("S3")))
-                .withRequestBody(matchingJsonPath("$.destination.bucket", equalTo("my-backups")))
-                .withRequestBody(matchingJsonPath("$.destination.auth_key", equalTo("AKID")))
-                .withRequestBody(matchingJsonPath("$.destination.auth_secret", equalTo("SECRET")))
-                .withRequestBody(matchingJsonPath("$.destination.region", equalTo("eu-central-1")))
-                .withRequestBody(matchingJsonPath("$.destination.endpoint",
+                .withRequestBody(matchingJsonPath("$.serviceInstance.service_instance_id",
+                        equalTo(INSTANCE_ID)))
+                .withRequestBody(matchingJsonPath("$.frequency", equalTo("0 0 2 * * *")))
+                .withRequestBody(matchingJsonPath("$.retentionStyle", equalTo("FILES")))
+                .withRequestBody(matchingJsonPath("$.retentionPeriod", equalTo("7")))
+                .withRequestBody(matchingJsonPath("$.timezone", equalTo("UTC")))
+                .withRequestBody(matchingJsonPath("$.name", equalTo("Auto-Backup")))
+                .withRequestBody(matchingJsonPath("$.fileDestination.type", equalTo("S3")))
+                .withRequestBody(matchingJsonPath("$.fileDestination.bucket", equalTo("my-backups")))
+                .withRequestBody(matchingJsonPath("$.fileDestination.authKey", equalTo("AKID")))
+                .withRequestBody(matchingJsonPath("$.fileDestination.authSecret", equalTo("SECRET")))
+                .withRequestBody(matchingJsonPath("$.fileDestination.region", equalTo("eu-central-1")))
+                .withRequestBody(matchingJsonPath("$.fileDestination.endpoint",
                         equalTo("https://minio.example.com"))));
     }
 
     @Test
     void createBackupPlan_destinationWithoutOptionalFields_omitsNulls() {
+        stubFileDestinations();
         stubFor(post(urlPathEqualTo("/backupPlans"))
                 .willReturn(okJson("""
                         {"id":"plan-min","paused":false}
@@ -208,11 +220,12 @@ class BackupManagerClientTest {
         minimal.setAuthSecret("S");
         minimal.setBucket("b");
 
-        client.createBackupPlan(MANAGER_ID, INSTANCE_ID, "0 2 * * *", minimal);
+        client.createBackupPlan(MANAGER_ID, INSTANCE_ID, "0 2 * * *", "FILES", 7, "UTC",
+                "Auto-Backup", List.of(), minimal);
 
         verify(postRequestedFor(urlPathEqualTo("/backupPlans"))
-                .withRequestBody(matchingJsonPath("$.destination.type", equalTo("S3")))
-                .withRequestBody(matchingJsonPath("$.destination.bucket", equalTo("b"))));
+                .withRequestBody(matchingJsonPath("$.fileDestination.type", equalTo("S3")))
+                .withRequestBody(matchingJsonPath("$.fileDestination.bucket", equalTo("b"))));
     }
 
     // ── Auth ───────────────────────────────────────────────────────────────────
@@ -231,6 +244,17 @@ class BackupManagerClientTest {
     }
 
     // ── helpers ────────────────────────────────────────────────────────────────
+
+    private void stubFileDestinations() {
+        stubFor(get(urlPathMatching("/fileDestinations/byInstance/.*"))
+                .willReturn(okJson("""
+                        {"content":[],"totalElements":0}
+                        """)));
+        stubFor(post(urlPathEqualTo("/fileDestinations"))
+                .willReturn(okJson("""
+                        {"idAsString":"dest-1","type":"S3"}
+                        """)));
+    }
 
     private S3FileDestination buildS3Destination() {
         S3FileDestination dest = new S3FileDestination();
