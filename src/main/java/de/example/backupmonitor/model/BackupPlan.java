@@ -13,6 +13,7 @@ public class BackupPlan {
 
     private boolean paused;
     private boolean active;
+    private boolean compression;
     private String status;
 
     @JsonProperty("backup_agent_url")

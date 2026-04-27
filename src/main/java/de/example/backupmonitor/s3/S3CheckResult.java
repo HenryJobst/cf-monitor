@@ -24,6 +24,8 @@ public class S3CheckResult {
     private long sizeActualBytes;
     private boolean sizeMatch;
 
+    private boolean compression;
+
     // b2) SHRINK
     private boolean sizeShrinkWarning;
 

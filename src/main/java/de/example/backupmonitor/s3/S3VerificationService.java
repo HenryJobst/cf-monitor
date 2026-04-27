@@ -82,7 +82,9 @@ public class S3VerificationService {
             }
 
             // ── b2) SHRINK ───────────────────────────────────────────────
-            checkShrink(result, instanceId, s3Size);
+            boolean compression = job.getBackupPlan() != null && job.getBackupPlan().isCompression();
+            result.setCompression(compression);
+            checkShrink(result, instanceId, s3Size, compression);
 
             // ── c) ACCESSIBLE ────────────────────────────────────────────
             int bytesToFetch = Math.max(accessibilityBytes, TAR_MIN_BYTES);
@@ -117,10 +119,12 @@ public class S3VerificationService {
         return finalize(result, managerId, instanceId, instanceName);
     }
 
-    private void checkShrink(S3CheckResult result, String instanceId, long currentSize) {
+    private void checkShrink(S3CheckResult result, String instanceId,
+                              long currentSize, boolean compression) {
         if (currentSize <= 0) return;
         repository.findLatestPassedForInstance(instanceId).ifPresent(prev -> {
             if (prev.getSizeActualBytes() == null || prev.getSizeActualBytes() <= 0) return;
+            if (prev.isCompression() != compression) return;
             long prevSize = prev.getSizeActualBytes();
             double shrinkPct = (double) (prevSize - currentSize) / prevSize * 100.0;
             if (shrinkPct >= shrinkWarningThresholdPercent) {
