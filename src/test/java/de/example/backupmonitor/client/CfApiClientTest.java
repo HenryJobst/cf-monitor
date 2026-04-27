@@ -125,26 +125,16 @@ class CfApiClientTest {
 
     @Test
     void findServiceInstancesByOffering_matchingOffering_returnsCandidate() {
-        stubFor(get(urlPathEqualTo("/v3/service_instances"))
+        stubFor(get(urlPathEqualTo("/v3/service_plans"))
+                .withQueryParam("service_offering_names", equalTo("s3"))
                 .willReturn(okJson("""
-                        {
-                          "resources": [{
-                            "guid": "inst-s3-guid",
-                            "name": "my-s3",
-                            "relationships": {
-                              "service_plan": {"data": {"guid": "plan-guid"}}
-                            }
-                          }],
-                          "included": {
-                            "service_plans": [{
-                              "guid": "plan-guid",
-                              "relationships": {
-                                "service_offering": {"data": {"guid": "offering-guid"}}
-                              }
-                            }],
-                            "service_offerings": [{"guid": "offering-guid", "name": "s3"}]
-                          }
-                        }
+                        {"resources": [{"guid": "plan-guid"}]}
+                        """)));
+        stubFor(get(urlPathEqualTo("/v3/service_instances"))
+                .withQueryParam("space_guids", equalTo("space-guid"))
+                .withQueryParam("service_plan_guids", equalTo("plan-guid"))
+                .willReturn(okJson("""
+                        {"resources": [{"guid": "inst-s3-guid", "name": "my-s3"}]}
                         """)));
 
         List<CfApiClient.S3ServiceCandidate> result =
@@ -187,42 +177,16 @@ class CfApiClientTest {
 
     @Test
     void findServiceInstancesByOffering_multipleInstances_returnsMatchingOnly() {
-        stubFor(get(urlPathEqualTo("/v3/service_instances"))
+        stubFor(get(urlPathEqualTo("/v3/service_plans"))
+                .withQueryParam("service_offering_names", equalTo("s3"))
                 .willReturn(okJson("""
-                        {
-                          "resources": [
-                            {
-                              "guid": "inst-s3",
-                              "name": "s3-service",
-                              "relationships": {"service_plan": {"data": {"guid": "plan-s3"}}}
-                            },
-                            {
-                              "guid": "inst-pg",
-                              "name": "pg-service",
-                              "relationships": {"service_plan": {"data": {"guid": "plan-pg"}}}
-                            }
-                          ],
-                          "included": {
-                            "service_plans": [
-                              {
-                                "guid": "plan-s3",
-                                "relationships": {
-                                  "service_offering": {"data": {"guid": "off-s3"}}
-                                }
-                              },
-                              {
-                                "guid": "plan-pg",
-                                "relationships": {
-                                  "service_offering": {"data": {"guid": "off-pg"}}
-                                }
-                              }
-                            ],
-                            "service_offerings": [
-                              {"guid": "off-s3", "name": "s3"},
-                              {"guid": "off-pg", "name": "postgresql"}
-                            ]
-                          }
-                        }
+                        {"resources": [{"guid": "plan-s3"}]}
+                        """)));
+        stubFor(get(urlPathEqualTo("/v3/service_instances"))
+                .withQueryParam("space_guids", equalTo("space-guid"))
+                .withQueryParam("service_plan_guids", equalTo("plan-s3"))
+                .willReturn(okJson("""
+                        {"resources": [{"guid": "inst-s3", "name": "s3-service"}]}
                         """)));
 
         List<CfApiClient.S3ServiceCandidate> result =

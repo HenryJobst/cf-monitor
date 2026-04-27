@@ -34,7 +34,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @Tag("integration")
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 @ExtendWith(MockitoExtension.class)
 class S3VerificationServiceIntegrationTest {
 

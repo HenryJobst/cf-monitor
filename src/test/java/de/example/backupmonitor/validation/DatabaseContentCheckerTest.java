@@ -17,7 +17,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Tag("integration")
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 class DatabaseContentCheckerTest {
 
     @Container

@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import(LiquibaseAutoConfiguration.class)
 @Tag("integration")
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 class MonitorRunRepositoryTest {
 
     @Container
