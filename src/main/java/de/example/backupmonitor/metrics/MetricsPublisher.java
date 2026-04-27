@@ -73,6 +73,9 @@ public class MetricsPublisher {
         getOrRegisterGauge(MetricNames.JOB_LAST_FILESIZE, tags,
                 "Size of last backup file in bytes")
                 .set(resolveFilesize(job));
+        getOrRegisterGauge(MetricNames.JOB_LAST_DURATION_MS, tags,
+                "Total execution time of last backup job in milliseconds")
+                .set(resolveDurationMs(job));
     }
 
     public void recordRestoreResult(String managerId, String instanceId,
@@ -148,6 +151,13 @@ public class MetricsPublisher {
         if (job == null || job.getAgentExecutionReponses() == null) return 0.0;
         return job.getAgentExecutionReponses().values().stream()
                 .mapToLong(r -> r.getFilesizeBytes() != null ? r.getFilesizeBytes() : 0L)
+                .sum();
+    }
+
+    private double resolveDurationMs(BackupJob job) {
+        if (job == null || job.getAgentExecutionReponses() == null) return -1.0;
+        return job.getAgentExecutionReponses().values().stream()
+                .mapToLong(r -> r.getExecutionTimeMs() != null ? r.getExecutionTimeMs() : 0L)
                 .sum();
     }
 }

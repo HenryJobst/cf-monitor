@@ -8,9 +8,17 @@ public class AgentExecutionResponse {
 
     private String filename;
 
-    @JsonProperty("filesize_bytes")
-    private Long filesizeBytes;
+    private FilesizeInfo filesize;
+
+    @JsonProperty("execution_time_ms")
+    private Long executionTimeMs;
 
     private String status;
     private String message;
+
+    public Long getFilesizeBytes() {
+        return filesize != null ? filesize.size() : null;
+    }
+
+    public record FilesizeInfo(Long size, String unit) {}
 }

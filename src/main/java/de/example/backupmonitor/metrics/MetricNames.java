@@ -12,6 +12,7 @@ public final class MetricNames {
     public static final String JOB_LAST_STATUS         = "backup_job_last_status";
     public static final String JOB_LAST_AGE_HOURS      = "backup_job_last_age_hours";
     public static final String JOB_LAST_FILESIZE        = "backup_job_last_filesize_bytes";
+    public static final String JOB_LAST_DURATION_MS     = "backup_job_last_duration_ms";
     public static final String JOB_SUCCESS_TOTAL        = "backup_job_success_total";
     public static final String JOB_FAILURE_TOTAL        = "backup_job_failure_total";
 
