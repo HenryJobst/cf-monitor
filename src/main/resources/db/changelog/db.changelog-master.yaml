@@ -23,3 +23,5 @@ databaseChangeLog:
       file: db/changelog/changes/011-create-instance-job-state.yaml
   - include:
       file: db/changelog/changes/012-s3-check-result-add-file-count.yaml
+  - include:
+      file: db/changelog/changes/013-s3-check-result-add-bucket-accessible.yaml

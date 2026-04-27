@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 013-s3-check-result-add-bucket-accessible
+      author: backup-monitor
+      changes:
+        - addColumn:
+            tableName: s3_check_result
+            columns:
+              - column:
+                  name: bucket_accessible
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: true

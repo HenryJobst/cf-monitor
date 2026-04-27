@@ -71,7 +71,6 @@ public class S3VerificationService {
             result.setBucketAccessible(checkBucketAccessible(s3, dest.getBucket()));
             if (!result.isBucketAccessible()) {
                 log.warn("S3 bucket not accessible: {}", dest.getBucket());
-                return finalize(result, managerId, instanceId, instanceName);
             }
 
             // ── a) EXISTS ────────────────────────────────────────────────

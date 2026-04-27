@@ -208,11 +208,15 @@ public class MetricsPublisher {
         if (job == null || job.getEndDate() == null) return -1.0;
         if (plan == null || plan.getFrequency() == null) return -1.0;
         try {
-            Duration interval = parseCronInterval(plan.getFrequency());
-            if (interval == null) return -1.0;
-            Duration maxAge = interval.multipliedBy(100 + tolerancePercent).dividedBy(100);
-            Duration age = Duration.between(job.getEndDate(), Instant.now());
-            return age.compareTo(maxAge) > 0 ? 1.0 : 0.0;
+            CronExpression expr = CronExpression.parse(plan.getFrequency());
+            LocalDateTime lastRun = LocalDateTime.ofInstant(job.getEndDate(), ZoneOffset.UTC);
+            LocalDateTime nextFire = expr.next(lastRun);
+            if (nextFire == null) return -1.0;
+            Instant nextFireInstant = nextFire.toInstant(ZoneOffset.UTC);
+            Duration gracePeriod = Duration.between(job.getEndDate(), nextFireInstant)
+                    .multipliedBy(tolerancePercent)
+                    .dividedBy(100);
+            return Instant.now().isAfter(nextFireInstant.plus(gracePeriod)) ? 1.0 : 0.0;
         } catch (Exception e) {
             log.debug("Could not determine overdue status for plan {}: {}", plan.getIdAsString(), e.getMessage());
             return -1.0;

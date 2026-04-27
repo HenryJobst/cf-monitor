@@ -31,6 +31,9 @@ public class S3CheckResultEntity {
     @Column(name = "bucket", length = 256)
     private String bucket;
 
+    @Column(name = "bucket_accessible")
+    private boolean bucketAccessible;
+
     @Column(name = "exists")
     private boolean exists;
 
@@ -83,6 +86,7 @@ public class S3CheckResultEntity {
         entity.setBackupJobId(result.getBackupJobId());
         entity.setFilename(result.getFilename());
         entity.setBucket(result.getBucket());
+        entity.setBucketAccessible(result.isBucketAccessible());
         entity.setExists(result.isExists());
         entity.setSizeExpectedBytes(result.getSizeExpectedBytes());
         entity.setSizeActualBytes(result.getSizeActualBytes());
