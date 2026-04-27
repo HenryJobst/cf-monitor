@@ -112,7 +112,7 @@ public class MetricsPublisher {
                 "1 = file bytes downloadable via range request")
                 .set(result.isAccessible() ? 1.0 : 0.0);
         getOrRegisterGauge(MetricNames.S3_MAGIC_BYTES_VALID, tags,
-                "1 = file starts with valid gzip magic bytes")
+                "1 = file has valid archive signature (gzip or tar)")
                 .set(result.isMagicBytesValid() ? 1.0 : 0.0);
         getOrRegisterGauge(MetricNames.S3_ALL_CHECKS_PASSED, tags,
                 "1 = all S3 checks passed (exists, size, accessible, magic bytes)")
