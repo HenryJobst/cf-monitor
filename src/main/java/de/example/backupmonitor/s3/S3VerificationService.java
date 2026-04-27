@@ -13,6 +13,7 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
+import java.time.Duration;
 import java.time.Instant;
 
 @Service
@@ -66,6 +67,13 @@ public class S3VerificationService {
 
         try (S3Client s3 = clientFactory.createClient(dest)) {
 
+            // ── a0) BUCKET ACCESSIBLE ─────────────────────────────────────
+            result.setBucketAccessible(checkBucketAccessible(s3, dest.getBucket()));
+            if (!result.isBucketAccessible()) {
+                log.warn("S3 bucket not accessible: {}", dest.getBucket());
+                return finalize(result, managerId, instanceId, instanceName);
+            }
+
             // ── a) EXISTS ────────────────────────────────────────────────
             HeadObjectResponse head = checkExists(s3, dest.getBucket(), filename);
             result.setExists(head != null);
@@ -96,6 +104,12 @@ public class S3VerificationService {
             long execTimeMs = resolveExecutionTimeMs(job);
             result.setExecutionTimeMs(execTimeMs);
             checkDurationGrowth(result, instanceId, execTimeMs, compression);
+
+            // ── f) FILE COUNT ─────────────────────────────────────────────
+            String prefix = job.getBackupPlan() != null && job.getBackupPlan().getIdAsString() != null
+                    ? job.getBackupPlan().getIdAsString() + "/" : "";
+            result.setS3FileCount(listObjectCount(s3, dest.getBucket(), prefix));
+            result.setExpectedFileCount(resolveExpectedFileCount(job.getBackupPlan()));
 
             // ── c) ACCESSIBLE ────────────────────────────────────────────
             int bytesToFetch = Math.max(accessibilityBytes, TAR_MIN_BYTES);
@@ -171,6 +185,62 @@ public class S3VerificationService {
         return job.getAgentExecutionReponses().values().stream()
                 .mapToLong(r -> r.getExecutionTimeMs() != null ? r.getExecutionTimeMs() : 0L)
                 .sum();
+    }
+
+    private boolean checkBucketAccessible(S3Client s3, String bucket) {
+        try {
+            s3.headBucket(r -> r.bucket(bucket));
+            return true;
+        } catch (Exception e) {
+            log.warn("Bucket head check failed for {}: {}", bucket, e.getMessage());
+            return false;
+        }
+    }
+
+    private Integer listObjectCount(S3Client s3, String bucket, String prefix) {
+        try {
+            int count = 0;
+            var paginator = s3.listObjectsV2Paginator(r -> r.bucket(bucket).prefix(prefix));
+            for (var page : paginator) {
+                count += page.contents().size();
+            }
+            return count;
+        } catch (Exception e) {
+            log.warn("Failed to list objects in s3://{}/{}: {}", bucket, prefix, e.getMessage());
+            return null;
+        }
+    }
+
+    private Integer resolveExpectedFileCount(de.example.backupmonitor.model.BackupPlan plan) {
+        if (plan == null || plan.getRetentionStyle() == null || plan.getRetentionPeriod() == null) return null;
+        return switch (plan.getRetentionStyle().toUpperCase()) {
+            case "FILES" -> plan.getRetentionPeriod();
+            case "DAYS" -> {
+                Duration interval = resolveIntervalFromPlan(plan);
+                if (interval == null) yield null;
+                double intervalHours = interval.toHours();
+                if (intervalHours <= 0) yield null;
+                yield (int) Math.round(plan.getRetentionPeriod() * 24.0 / intervalHours);
+            }
+            case "HOURS" -> {
+                Duration interval = resolveIntervalFromPlan(plan);
+                if (interval == null) yield null;
+                double intervalHours = interval.toHours();
+                if (intervalHours <= 0) yield null;
+                yield (int) Math.round(plan.getRetentionPeriod() / intervalHours);
+            }
+            default -> null;
+        };
+    }
+
+    private Duration resolveIntervalFromPlan(de.example.backupmonitor.model.BackupPlan plan) {
+        if (plan.getFrequency() == null) return null;
+        try {
+            return MetricsPublisher.parseCronInterval(plan.getFrequency());
+        } catch (Exception e) {
+            log.debug("Could not parse cron '{}': {}", plan.getFrequency(), e.getMessage());
+            return null;
+        }
     }
 
     private boolean isGzip(byte[] bytes) {

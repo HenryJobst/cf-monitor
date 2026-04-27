@@ -1,0 +1,15 @@
+databaseChangeLog:
+  - changeSet:
+      id: 009-s3-check-result-add-compression
+      author: backup-monitor
+      comment: "Kompressions-Flag des Backup-Plans für Shrink-Vergleich speichern"
+      changes:
+        - addColumn:
+            tableName: s3_check_result
+            columns:
+              - column:
+                  name: compression
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false

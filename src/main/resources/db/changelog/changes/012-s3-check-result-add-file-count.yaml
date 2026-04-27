@@ -1,0 +1,12 @@
+databaseChangeLog:
+  - changeSet:
+      id: 012-s3-check-result-add-file-count
+      author: backup-monitor
+      comment: "Anzahl der Backup-Dateien im S3-Ordner für Retention-Überwachung"
+      changes:
+        - addColumn:
+            tableName: s3_check_result
+            columns:
+              - column:
+                  name: s3_file_count
+                  type: INT

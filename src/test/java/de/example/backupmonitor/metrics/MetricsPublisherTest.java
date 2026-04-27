@@ -67,7 +67,7 @@ class MetricsPublisherTest {
         job.setStatus(JobStatus.SUCCEEDED);
         job.setEndDate(Instant.now().minusSeconds(3600));
 
-        publisher.recordJobResult("mgr", "inst", "name", job);
+        publisher.recordJobResult("mgr", "inst", "name", job, null, 25);
 
         assertGaugeValue(MetricNames.JOB_LAST_STATUS, "mgr", "inst", "name", 1.0);
     }
@@ -77,18 +77,83 @@ class MetricsPublisherTest {
         BackupJob job = new BackupJob();
         job.setStatus(JobStatus.FAILED);
 
-        publisher.recordJobResult("mgr", "inst", "name", job);
+        publisher.recordJobResult("mgr", "inst", "name", job, null, 25);
 
         assertGaugeValue(MetricNames.JOB_LAST_STATUS, "mgr", "inst", "name", 0.0);
     }
 
     @Test
     void recordJobResult_nullJob_setsDefaultValues() {
-        publisher.recordJobResult("mgr", "inst", "name", null);
+        publisher.recordJobResult("mgr", "inst", "name", null, null, 25);
 
         assertGaugeValue(MetricNames.JOB_LAST_STATUS, "mgr", "inst", "name", 0.0);
         assertGaugeValue(MetricNames.JOB_LAST_AGE_HOURS, "mgr", "inst", "name", -1.0);
         assertGaugeValue(MetricNames.JOB_LAST_FILESIZE, "mgr", "inst", "name", 0.0);
+    }
+
+    @Test
+    void recordJobResult_overdueJob_setsOverdueToOne() {
+        BackupJob job = new BackupJob();
+        job.setStatus(JobStatus.SUCCEEDED);
+        // Job vor 30 Stunden – bei täglichem Cron (24h) + 25% Toleranz (30h) knapp überfällig
+        job.setEndDate(Instant.now().minusSeconds(31 * 3600L));
+
+        BackupPlan plan = new BackupPlan();
+        plan.setFrequency("0 0 2 * * *"); // täglich 02:00
+
+        publisher.recordJobResult("mgr", "inst", "name", job, plan, 25);
+
+        assertGaugeValue(MetricNames.JOB_OVERDUE, "mgr", "inst", "name", 1.0);
+    }
+
+    @Test
+    void recordJobResult_recentJob_setsOverdueToZero() {
+        BackupJob job = new BackupJob();
+        job.setStatus(JobStatus.SUCCEEDED);
+        job.setEndDate(Instant.now().minusSeconds(3600));
+
+        BackupPlan plan = new BackupPlan();
+        plan.setFrequency("0 0 2 * * *");
+
+        publisher.recordJobResult("mgr", "inst", "name", job, plan, 25);
+
+        assertGaugeValue(MetricNames.JOB_OVERDUE, "mgr", "inst", "name", 0.0);
+    }
+
+    @Test
+    void recordJobResult_nullPlan_setsOverdueToMinusOne() {
+        BackupJob job = new BackupJob();
+        job.setStatus(JobStatus.SUCCEEDED);
+        job.setEndDate(Instant.now().minusSeconds(3600));
+
+        publisher.recordJobResult("mgr", "inst", "name", job, null, 25);
+
+        assertGaugeValue(MetricNames.JOB_OVERDUE, "mgr", "inst", "name", -1.0);
+    }
+
+    // ── recordConsecutiveFailures ────────────────────────────────────────────
+
+    @Test
+    void recordConsecutiveFailures_setsGaugeCorrectly() {
+        publisher.recordConsecutiveFailures("mgr", "inst", "name", 3);
+
+        assertGaugeValue(MetricNames.JOB_CONSECUTIVE_FAILURES, "mgr", "inst", "name", 3.0);
+    }
+
+    // ── recordPlanHasSucceededJob ─────────────────────────────────────────────
+
+    @Test
+    void recordPlanHasSucceededJob_true_setsGaugeToOne() {
+        publisher.recordPlanHasSucceededJob("mgr", "inst", "name", true);
+
+        assertGaugeValue(MetricNames.PLAN_HAS_SUCCEEDED_JOB, "mgr", "inst", "name", 1.0);
+    }
+
+    @Test
+    void recordPlanHasSucceededJob_false_setsGaugeToZero() {
+        publisher.recordPlanHasSucceededJob("mgr", "inst", "name", false);
+
+        assertGaugeValue(MetricNames.PLAN_HAS_SUCCEEDED_JOB, "mgr", "inst", "name", 0.0);
     }
 
     // ── incrementJobSuccess / Failure ─────────────────────────────────────────

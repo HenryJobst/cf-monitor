@@ -3,6 +3,7 @@ package de.example.backupmonitor.monitor;
 import de.example.backupmonitor.config.MonitoringConfig;
 import de.example.backupmonitor.metrics.MetricsPublisher;
 import de.example.backupmonitor.model.BackupJob;
+import de.example.backupmonitor.persistence.ConsecutiveFailuresService;
 import de.example.backupmonitor.persistence.MonitorRun;
 import de.example.backupmonitor.persistence.MonitorRunRepository;
 import de.example.backupmonitor.persistence.RetentionCleanupJob;
@@ -30,6 +31,7 @@ public class MonitoringOrchestrator {
     private final MetricsPublisher metrics;
     private final MonitorRunRepository monitorRunRepo;
     private final RetentionCleanupJob retentionCleanup;
+    private final ConsecutiveFailuresService consecutiveFailuresService;
 
     public void runJobChecks() {
         log.info("Running job checks for {} manager(s)", config.getManagers().size());
@@ -57,18 +59,29 @@ public class MonitoringOrchestrator {
                     instance.getName(), planResult.getPlan());
 
             if (!planResult.isOk()) {
+                int streak = consecutiveFailuresService.recordFailure(manager.getId(), instance.getId());
+                metrics.recordConsecutiveFailures(manager.getId(), instance.getId(),
+                        instance.getName(), streak);
                 completeRun(run, "FAILED", planResult.getMessage(), null);
                 metrics.incrementJobFailure(manager.getId(), instance.getId(), instance.getName());
                 return;
             }
 
-            // ② Letzten Job prüfen
+            // ② Plan je erfolgreich?
+            boolean hasSucceeded = consecutiveFailuresService.hasEverSucceeded(
+                    manager.getId(), instance.getId(),
+                    () -> jobMonitor.hasEverSucceeded(manager.getId(), instance.getId()));
+            metrics.recordPlanHasSucceededJob(manager.getId(), instance.getId(),
+                    instance.getName(), hasSucceeded);
+
+            // ③ Letzten Job prüfen
             JobCheckResult jobResult = jobMonitor.checkLatestJob(
                     manager.getId(), instance.getId(), planResult.getPlan());
             metrics.recordJobResult(manager.getId(), instance.getId(),
-                    instance.getName(), jobResult.getJob());
+                    instance.getName(), jobResult.getJob(), planResult.getPlan(),
+                    config.getS3Verification().getOverdueTolerancePercent());
 
-            // ③ S3-Verifikation (nur wenn Job SUCCEEDED)
+            // ④ S3-Verifikation (nur wenn Job SUCCEEDED)
             if (jobResult.isSuccess() && jobResult.getJob() != null
                     && config.getS3Verification().isEnabled()) {
                 try {
@@ -83,9 +96,15 @@ public class MonitoringOrchestrator {
             }
 
             if (jobResult.isSuccess()) {
+                int streak = consecutiveFailuresService.recordSuccess(manager.getId(), instance.getId());
+                metrics.recordConsecutiveFailures(manager.getId(), instance.getId(),
+                        instance.getName(), streak);
                 metrics.incrementJobSuccess(manager.getId(), instance.getId(), instance.getName());
                 completeRun(run, "OK", null, buildJobDetails(jobResult.getJob()));
             } else {
+                int streak = consecutiveFailuresService.recordFailure(manager.getId(), instance.getId());
+                metrics.recordConsecutiveFailures(manager.getId(), instance.getId(),
+                        instance.getName(), streak);
                 metrics.incrementJobFailure(manager.getId(), instance.getId(), instance.getName());
                 completeRun(run, "FAILED", jobResult.getMessage(), null);
             }

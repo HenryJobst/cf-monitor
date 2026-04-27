@@ -26,6 +26,9 @@ public class S3CheckResult {
 
     private boolean compression;
 
+    // a0) BUCKET
+    private boolean bucketAccessible;
+
     // b2) SIZE TREND
     private boolean sizeShrinkWarning;
     private boolean sizeGrowthWarning;
@@ -33,6 +36,10 @@ public class S3CheckResult {
     // e) DURATION
     private long executionTimeMs;
     private boolean durationGrowthWarning;
+
+    // f) FILE COUNT
+    private Integer s3FileCount;
+    private Integer expectedFileCount;
 
     // c) ACCESSIBLE
     private boolean accessible;

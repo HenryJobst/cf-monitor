@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007-s3-check-result-rename-size-match
+      author: backup-monitor
+      comment: "size_match_within_tolerance → size_match; size_deviation_percent entfernen"
+      changes:
+        - renameColumn:
+            tableName: s3_check_result
+            oldColumnName: size_match_within_tolerance
+            newColumnName: size_match
+            columnDataType: BOOLEAN
+        - dropColumn:
+            tableName: s3_check_result
+            columnName: size_deviation_percent

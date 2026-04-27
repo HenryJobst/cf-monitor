@@ -46,6 +46,9 @@ public class S3CheckResultEntity {
     @Column(name = "compression")
     private boolean compression;
 
+    @Column(name = "s3_file_count")
+    private Integer s3FileCount;
+
     @Column(name = "size_shrink_warning")
     private boolean sizeShrinkWarning;
 
@@ -84,6 +87,7 @@ public class S3CheckResultEntity {
         entity.setSizeExpectedBytes(result.getSizeExpectedBytes());
         entity.setSizeActualBytes(result.getSizeActualBytes());
         entity.setSizeMatch(result.isSizeMatch());
+        entity.setS3FileCount(result.getS3FileCount());
         entity.setCompression(result.isCompression());
         entity.setSizeShrinkWarning(result.isSizeShrinkWarning());
         entity.setSizeGrowthWarning(result.isSizeGrowthWarning());

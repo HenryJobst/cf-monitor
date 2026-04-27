@@ -14,6 +14,9 @@ public class BackupPlan {
     private boolean paused;
     private boolean active;
     private boolean compression;
+    private String frequency;
+    private String retentionStyle;
+    private Integer retentionPeriod;
     private String status;
 
     @JsonProperty("backup_agent_url")

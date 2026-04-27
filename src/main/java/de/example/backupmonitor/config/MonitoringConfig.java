@@ -72,6 +72,7 @@ public class MonitoringConfig {
         private int shrinkWarningThresholdPercent = 20;
         private int growthWarningThresholdPercent = 50;
         private int durationGrowthThresholdPercent = 50;
+        private int overdueTolerancePercent = 25;
     }
 
     @Data

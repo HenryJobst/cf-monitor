@@ -35,4 +35,8 @@ public class BackupJobMonitor {
         log.debug("Backup job OK for instance {} (job: {})", instanceId, job.getIdAsString());
         return JobCheckResult.success(job);
     }
+
+    public boolean hasEverSucceeded(String managerId, String instanceId) {
+        return managerClient.getLatestBackupJob(managerId, instanceId).isPresent();
+    }
 }

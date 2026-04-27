@@ -1,0 +1,56 @@
+databaseChangeLog:
+  - changeSet:
+      id: 011-create-instance-job-state
+      author: backup-monitor
+      comment: "Persistenter Zähler für aufeinanderfolgende Fehler und 'je erfolgreich'-Flag pro Instanz"
+      changes:
+        - createTable:
+            tableName: instance_job_state
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_instance_job_state
+              - column:
+                  name: manager_id
+                  type: VARCHAR(128)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: instance_id
+                  type: VARCHAR(128)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: consecutive_failures
+                  type: INT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: has_ever_succeeded
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+                  defaultValueComputed: NOW()
+        - addUniqueConstraint:
+            tableName: instance_job_state
+            columnNames: instance_id
+            constraintName: uq_instance_job_state_instance_id
+        - createIndex:
+            tableName: instance_job_state
+            indexName: idx_instance_job_state_lookup
+            columns:
+              - column:
+                  name: manager_id
+              - column:
+                  name: instance_id

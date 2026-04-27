@@ -5,6 +5,7 @@ import de.example.backupmonitor.metrics.MetricsPublisher;
 import de.example.backupmonitor.model.BackupJob;
 import de.example.backupmonitor.model.BackupPlan;
 import de.example.backupmonitor.model.JobStatus;
+import de.example.backupmonitor.persistence.ConsecutiveFailuresService;
 import de.example.backupmonitor.persistence.MonitorRun;
 import de.example.backupmonitor.persistence.MonitorRunRepository;
 import de.example.backupmonitor.persistence.RetentionCleanupJob;
@@ -32,6 +33,7 @@ class MonitoringOrchestratorTest {
     @Mock private MetricsPublisher metrics;
     @Mock private MonitorRunRepository monitorRunRepo;
     @Mock private RetentionCleanupJob retentionCleanup;
+    @Mock private ConsecutiveFailuresService consecutiveFailuresService;
 
     private MonitoringOrchestrator orchestrator;
 
@@ -44,7 +46,8 @@ class MonitoringOrchestratorTest {
         MonitoringConfig config = buildConfig(true);
         orchestrator = new MonitoringOrchestrator(
                 config, planMonitor, jobMonitor, restoreTestMonitor,
-                s3VerificationService, metrics, monitorRunRepo, retentionCleanup);
+                s3VerificationService, metrics, monitorRunRepo, retentionCleanup,
+                consecutiveFailuresService);
 
         lenient().when(monitorRunRepo.save(any())).thenAnswer(inv -> {
             MonitorRun r = inv.getArgument(0);
@@ -67,6 +70,51 @@ class MonitoringOrchestratorTest {
 
         verify(metrics).incrementJobSuccess(MGR_ID, INST_ID, INST_NAME);
         verify(retentionCleanup).cleanup();
+    }
+
+    @Test
+    void runJobChecks_jobSucceeded_recordsConsecutiveSuccess() {
+        BackupPlan plan = activePlan();
+        BackupJob job = succeededJob();
+        when(planMonitor.checkPlan(MGR_ID, INST_ID)).thenReturn(PlanCheckResult.ok(plan));
+        when(jobMonitor.checkLatestJob(eq(MGR_ID), eq(INST_ID), any()))
+                .thenReturn(JobCheckResult.success(job));
+        when(consecutiveFailuresService.recordSuccess(MGR_ID, INST_ID)).thenReturn(0);
+
+        orchestrator.runJobChecks();
+
+        verify(consecutiveFailuresService).recordSuccess(MGR_ID, INST_ID);
+        verify(metrics).recordConsecutiveFailures(MGR_ID, INST_ID, INST_NAME, 0);
+    }
+
+    @Test
+    void runJobChecks_jobFailed_recordsConsecutiveFailure() {
+        BackupPlan plan = activePlan();
+        when(planMonitor.checkPlan(MGR_ID, INST_ID)).thenReturn(PlanCheckResult.ok(plan));
+        when(jobMonitor.checkLatestJob(eq(MGR_ID), eq(INST_ID), any()))
+                .thenReturn(JobCheckResult.failed("FAILED"));
+        when(consecutiveFailuresService.recordFailure(MGR_ID, INST_ID)).thenReturn(2);
+
+        orchestrator.runJobChecks();
+
+        verify(consecutiveFailuresService).recordFailure(MGR_ID, INST_ID);
+        verify(metrics).recordConsecutiveFailures(MGR_ID, INST_ID, INST_NAME, 2);
+    }
+
+    @Test
+    void runJobChecks_planOk_checksHasEverSucceeded() {
+        BackupPlan plan = activePlan();
+        BackupJob job = succeededJob();
+        when(planMonitor.checkPlan(MGR_ID, INST_ID)).thenReturn(PlanCheckResult.ok(plan));
+        when(jobMonitor.checkLatestJob(eq(MGR_ID), eq(INST_ID), any()))
+                .thenReturn(JobCheckResult.success(job));
+        when(consecutiveFailuresService.hasEverSucceeded(eq(MGR_ID), eq(INST_ID), any()))
+                .thenReturn(true);
+
+        orchestrator.runJobChecks();
+
+        verify(consecutiveFailuresService).hasEverSucceeded(eq(MGR_ID), eq(INST_ID), any());
+        verify(metrics).recordPlanHasSucceededJob(MGR_ID, INST_ID, INST_NAME, true);
     }
 
     @Test
@@ -97,7 +145,8 @@ class MonitoringOrchestratorTest {
         MonitoringConfig config = buildConfig(false);
         orchestrator = new MonitoringOrchestrator(
                 config, planMonitor, jobMonitor, restoreTestMonitor,
-                s3VerificationService, metrics, monitorRunRepo, retentionCleanup);
+                s3VerificationService, metrics, monitorRunRepo, retentionCleanup,
+                consecutiveFailuresService);
 
         BackupPlan plan = activePlan();
         BackupJob job = succeededJob();
@@ -137,7 +186,8 @@ class MonitoringOrchestratorTest {
         config.getRestoreTest().setEnabled(false);
         orchestrator = new MonitoringOrchestrator(
                 config, planMonitor, jobMonitor, restoreTestMonitor,
-                s3VerificationService, metrics, monitorRunRepo, retentionCleanup);
+                s3VerificationService, metrics, monitorRunRepo, retentionCleanup,
+                consecutiveFailuresService);
 
         orchestrator.runRestoreTests();
 

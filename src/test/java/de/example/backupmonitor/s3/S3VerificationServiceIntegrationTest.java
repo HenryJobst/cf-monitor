@@ -28,6 +28,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.net.URI;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -149,6 +150,38 @@ class S3VerificationServiceIntegrationTest {
     }
 
     @Test
+    void verify_bucketNotAccessible_returnsBucketAccessibleFalse() {
+        BackupJob job = buildJobWithBucket("non-existent-bucket", 1024);
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        S3CheckResult result = service.verify("mgr-1", "inst-1", "pg-test", job);
+
+        assertThat(result.isBucketAccessible()).isFalse();
+        assertThat(result.isExists()).isFalse();
+        assertThat(result.isAllPassed()).isFalse();
+    }
+
+    @Test
+    void verify_fileExists_setsS3FileCount() {
+        byte[] content = new byte[1024];
+        content[0] = 0x1F;
+        content[1] = (byte) 0x8B;
+
+        adminClient.putObject(
+                PutObjectRequest.builder().bucket(BUCKET).key(FILE_KEY).build(),
+                RequestBody.fromBytes(content));
+
+        BackupJob job = buildJob(content.length);
+        when(repository.findLatestPassedForInstance(any())).thenReturn(Optional.empty());
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        S3CheckResult result = service.verify("mgr-1", "inst-1", "pg-test", job);
+
+        assertThat(result.getS3FileCount()).isNotNull();
+        assertThat(result.getS3FileCount()).isGreaterThanOrEqualTo(1);
+    }
+
+    @Test
     void verify_sizeMismatch_sizeMatchFalse() {
         byte[] content = new byte[1024];
         content[0] = 0x1F;
@@ -166,6 +199,18 @@ class S3VerificationServiceIntegrationTest {
 
         assertThat(result.isExists()).isTrue();
         assertThat(result.isSizeMatch()).isFalse();
+    }
+
+    private BackupJob buildJobWithBucket(String bucket, long filesize) {
+        BackupJob job = buildJob(filesize);
+        S3FileDestination dest = new S3FileDestination();
+        dest.setBucket(bucket);
+        dest.setEndpoint(minio.getS3URL());
+        dest.setAuthKey("minioadmin");
+        dest.setAuthSecret("minioadmin");
+        dest.setSkipSSL(false);
+        job.setDestination(dest);
+        return job;
     }
 
     private BackupJob buildJob(long filesize) {

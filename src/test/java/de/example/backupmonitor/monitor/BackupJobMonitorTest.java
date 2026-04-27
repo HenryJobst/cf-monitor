@@ -57,4 +57,20 @@ class BackupJobMonitorTest {
         assertThat(result.isSuccess()).isFalse();
         assertThat(result.getMessage()).contains("FAILED");
     }
+
+    @Test
+    void hasEverSucceeded_jobPresent_returnsTrue() {
+        BackupJob job = new BackupJob();
+        job.setId("job-1");
+        when(managerClient.getLatestBackupJob("mgr", "inst")).thenReturn(Optional.of(job));
+
+        assertThat(jobMonitor.hasEverSucceeded("mgr", "inst")).isTrue();
+    }
+
+    @Test
+    void hasEverSucceeded_noJob_returnsFalse() {
+        when(managerClient.getLatestBackupJob("mgr", "inst")).thenReturn(Optional.empty());
+
+        assertThat(jobMonitor.hasEverSucceeded("mgr", "inst")).isFalse();
+    }
 }

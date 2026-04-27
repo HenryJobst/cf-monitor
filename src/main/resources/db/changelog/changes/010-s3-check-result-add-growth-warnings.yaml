@@ -1,0 +1,24 @@
+databaseChangeLog:
+  - changeSet:
+      id: 010-s3-check-result-add-growth-warnings
+      author: backup-monitor
+      comment: "Growth-Warnungen und Ausführungszeit zur S3-Verifikation hinzufügen"
+      changes:
+        - addColumn:
+            tableName: s3_check_result
+            columns:
+              - column:
+                  name: size_growth_warning
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: execution_time_ms
+                  type: BIGINT
+              - column:
+                  name: duration_growth_warning
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false

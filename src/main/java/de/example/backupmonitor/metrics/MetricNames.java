@@ -5,11 +5,14 @@ public final class MetricNames {
     private MetricNames() {}
 
     // Plan
-    public static final String PLAN_ACTIVE             = "backup_plan_active";
-    public static final String PLAN_PAUSED             = "backup_plan_paused";
+    public static final String PLAN_ACTIVE               = "backup_plan_active";
+    public static final String PLAN_PAUSED               = "backup_plan_paused";
+    public static final String PLAN_HAS_SUCCEEDED_JOB    = "backup_plan_has_succeeded_job";
 
     // Job
-    public static final String JOB_LAST_STATUS         = "backup_job_last_status";
+    public static final String JOB_LAST_STATUS           = "backup_job_last_status";
+    public static final String JOB_CONSECUTIVE_FAILURES  = "backup_job_consecutive_failures";
+    public static final String JOB_OVERDUE               = "backup_job_overdue";
     public static final String JOB_LAST_AGE_HOURS      = "backup_job_last_age_hours";
     public static final String JOB_LAST_FILESIZE        = "backup_job_last_filesize_bytes";
     public static final String JOB_LAST_DURATION_MS     = "backup_job_last_duration_ms";
@@ -32,6 +35,9 @@ public final class MetricNames {
     public static final String S3_SIZE_SHRINK_WARNING    = "backup_s3_size_shrink_warning";
     public static final String S3_SIZE_GROWTH_WARNING    = "backup_s3_size_growth_warning";
     public static final String S3_DURATION_GROWTH_WARNING = "backup_s3_duration_growth_warning";
-    public static final String S3_ALL_CHECKS_PASSED     = "backup_s3_all_checks_passed";
-    public static final String S3_FILE_SIZE_BYTES       = "backup_s3_file_size_bytes";
+    public static final String S3_BUCKET_ACCESSIBLE      = "backup_s3_bucket_accessible";
+    public static final String S3_FILE_COUNT             = "backup_s3_file_count";
+    public static final String S3_EXPECTED_FILE_COUNT    = "backup_s3_expected_file_count";
+    public static final String S3_ALL_CHECKS_PASSED      = "backup_s3_all_checks_passed";
+    public static final String S3_FILE_SIZE_BYTES        = "backup_s3_file_size_bytes";
 }

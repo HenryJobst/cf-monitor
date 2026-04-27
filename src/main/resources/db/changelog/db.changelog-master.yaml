@@ -19,3 +19,7 @@ databaseChangeLog:
       file: db/changelog/changes/009-s3-check-result-add-compression.yaml
   - include:
       file: db/changelog/changes/010-s3-check-result-add-growth-warnings.yaml
+  - include:
+      file: db/changelog/changes/011-create-instance-job-state.yaml
+  - include:
+      file: db/changelog/changes/012-s3-check-result-add-file-count.yaml

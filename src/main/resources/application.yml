@@ -54,6 +54,7 @@ cf-backup-monitor:
     shrink-warning-threshold-percent: ${S3_SHRINK_THRESHOLD:20}
     growth-warning-threshold-percent: ${S3_GROWTH_THRESHOLD:50}
     duration-growth-threshold-percent: ${S3_DURATION_GROWTH_THRESHOLD:50}
+    overdue-tolerance-percent: ${S3_OVERDUE_TOLERANCE_PCT:25}
 
   retention:
     job-check-entries:         ${RETENTION_JOB_CHECK:30}

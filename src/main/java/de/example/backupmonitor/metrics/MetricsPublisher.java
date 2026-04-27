@@ -10,16 +10,20 @@ import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.support.CronExpression;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class MetricsPublisher {
 
     private final MeterRegistry registry;
@@ -59,8 +63,17 @@ public class MetricsPublisher {
                 .set(plan != null && plan.isPaused() ? 1.0 : 0.0);
     }
 
+    public void recordPlanHasSucceededJob(String managerId, String instanceId,
+                                           String instanceName, boolean hasSucceeded) {
+        Tags tags = instanceTags(managerId, instanceId, instanceName);
+        getOrRegisterGauge(MetricNames.PLAN_HAS_SUCCEEDED_JOB, tags,
+                "1 = plan has had at least one SUCCEEDED job, 0 = never succeeded")
+                .set(hasSucceeded ? 1.0 : 0.0);
+    }
+
     public void recordJobResult(String managerId, String instanceId,
-                                 String instanceName, BackupJob job) {
+                                 String instanceName, BackupJob job,
+                                 BackupPlan plan, int overdueTolerancePercent) {
         Tags tags = instanceTags(managerId, instanceId, instanceName);
         getOrRegisterGauge(MetricNames.JOB_LAST_STATUS, tags,
                 "1=SUCCEEDED, 0=otherwise")
@@ -76,6 +89,17 @@ public class MetricsPublisher {
         getOrRegisterGauge(MetricNames.JOB_LAST_DURATION_MS, tags,
                 "Total execution time of last backup job in milliseconds")
                 .set(resolveDurationMs(job));
+        getOrRegisterGauge(MetricNames.JOB_OVERDUE, tags,
+                "1 = last backup is overdue based on plan schedule, -1 = not determinable")
+                .set(resolveOverdue(job, plan, overdueTolerancePercent));
+    }
+
+    public void recordConsecutiveFailures(String managerId, String instanceId,
+                                           String instanceName, int count) {
+        Tags tags = instanceTags(managerId, instanceId, instanceName);
+        getOrRegisterGauge(MetricNames.JOB_CONSECUTIVE_FAILURES, tags,
+                "Number of consecutive failed backup jobs since last success")
+                .set(count);
     }
 
     public void recordRestoreResult(String managerId, String instanceId,
@@ -102,11 +126,14 @@ public class MetricsPublisher {
                                      String instanceName, S3CheckResult result) {
         Tags tags = instanceTags(managerId, instanceId, instanceName);
 
+        getOrRegisterGauge(MetricNames.S3_BUCKET_ACCESSIBLE, tags,
+                "1 = S3 bucket is reachable")
+                .set(result.isBucketAccessible() ? 1.0 : 0.0);
         getOrRegisterGauge(MetricNames.S3_FILE_EXISTS, tags,
                 "1 = backup file exists in S3")
                 .set(result.isExists() ? 1.0 : 0.0);
         getOrRegisterGauge(MetricNames.S3_SIZE_MATCH, tags,
-                "1 = file size within configured tolerance")
+                "1 = file size matches reported size exactly")
                 .set(result.isSizeMatch() ? 1.0 : 0.0);
         getOrRegisterGauge(MetricNames.S3_ACCESSIBLE, tags,
                 "1 = file bytes downloadable via range request")
@@ -123,6 +150,16 @@ public class MetricsPublisher {
         getOrRegisterGauge(MetricNames.S3_DURATION_GROWTH_WARNING, tags,
                 "1 = backup duration is significantly longer than previous backup")
                 .set(result.isDurationGrowthWarning() ? 1.0 : 0.0);
+        if (result.getS3FileCount() != null) {
+            getOrRegisterGauge(MetricNames.S3_FILE_COUNT, tags,
+                    "Number of backup files in the S3 prefix folder")
+                    .set(result.getS3FileCount());
+        }
+        if (result.getExpectedFileCount() != null) {
+            getOrRegisterGauge(MetricNames.S3_EXPECTED_FILE_COUNT, tags,
+                    "Expected number of backup files based on retention settings")
+                    .set(result.getExpectedFileCount());
+        }
         getOrRegisterGauge(MetricNames.S3_ALL_CHECKS_PASSED, tags,
                 "1 = all S3 checks passed (exists, size, accessible, magic bytes)")
                 .set(result.isAllPassed() ? 1.0 : 0.0);
@@ -165,5 +202,30 @@ public class MetricsPublisher {
         return job.getAgentExecutionReponses().values().stream()
                 .mapToLong(r -> r.getExecutionTimeMs() != null ? r.getExecutionTimeMs() : 0L)
                 .sum();
+    }
+
+    private double resolveOverdue(BackupJob job, BackupPlan plan, int tolerancePercent) {
+        if (job == null || job.getEndDate() == null) return -1.0;
+        if (plan == null || plan.getFrequency() == null) return -1.0;
+        try {
+            Duration interval = parseCronInterval(plan.getFrequency());
+            if (interval == null) return -1.0;
+            Duration maxAge = interval.multipliedBy(100 + tolerancePercent).dividedBy(100);
+            Duration age = Duration.between(job.getEndDate(), Instant.now());
+            return age.compareTo(maxAge) > 0 ? 1.0 : 0.0;
+        } catch (Exception e) {
+            log.debug("Could not determine overdue status for plan {}: {}", plan.getIdAsString(), e.getMessage());
+            return -1.0;
+        }
+    }
+
+    public static Duration parseCronInterval(String frequency) {
+        CronExpression expr = CronExpression.parse(frequency);
+        LocalDateTime base = LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC);
+        LocalDateTime first = expr.next(base);
+        if (first == null) return null;
+        LocalDateTime second = expr.next(first);
+        if (second == null) return null;
+        return Duration.between(first, second);
     }
 }

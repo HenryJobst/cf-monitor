@@ -1,0 +1,15 @@
+databaseChangeLog:
+  - changeSet:
+      id: 008-s3-check-result-add-shrink-warning
+      author: backup-monitor
+      comment: "Spalte size_shrink_warning zur S3-Verifikation hinzufügen"
+      changes:
+        - addColumn:
+            tableName: s3_check_result
+            columns:
+              - column:
+                  name: size_shrink_warning
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
