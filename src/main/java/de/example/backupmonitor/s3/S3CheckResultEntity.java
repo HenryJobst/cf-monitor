@@ -49,6 +49,15 @@ public class S3CheckResultEntity {
     @Column(name = "size_shrink_warning")
     private boolean sizeShrinkWarning;
 
+    @Column(name = "size_growth_warning")
+    private boolean sizeGrowthWarning;
+
+    @Column(name = "execution_time_ms")
+    private Long executionTimeMs;
+
+    @Column(name = "duration_growth_warning")
+    private boolean durationGrowthWarning;
+
     @Column(name = "accessible")
     private boolean accessible;
 
@@ -77,6 +86,9 @@ public class S3CheckResultEntity {
         entity.setSizeMatch(result.isSizeMatch());
         entity.setCompression(result.isCompression());
         entity.setSizeShrinkWarning(result.isSizeShrinkWarning());
+        entity.setSizeGrowthWarning(result.isSizeGrowthWarning());
+        entity.setExecutionTimeMs(result.getExecutionTimeMs() > 0 ? result.getExecutionTimeMs() : null);
+        entity.setDurationGrowthWarning(result.isDurationGrowthWarning());
         entity.setAccessible(result.isAccessible());
         entity.setMagicBytesValid(result.isMagicBytesValid());
         entity.setAllPassed(result.isAllPassed());

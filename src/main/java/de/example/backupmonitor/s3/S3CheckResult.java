@@ -26,8 +26,13 @@ public class S3CheckResult {
 
     private boolean compression;
 
-    // b2) SHRINK
+    // b2) SIZE TREND
     private boolean sizeShrinkWarning;
+    private boolean sizeGrowthWarning;
+
+    // e) DURATION
+    private long executionTimeMs;
+    private boolean durationGrowthWarning;
 
     // c) ACCESSIBLE
     private boolean accessible;

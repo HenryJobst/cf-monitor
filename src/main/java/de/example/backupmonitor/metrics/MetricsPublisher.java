@@ -117,6 +117,12 @@ public class MetricsPublisher {
         getOrRegisterGauge(MetricNames.S3_SIZE_SHRINK_WARNING, tags,
                 "1 = backup file is significantly smaller than previous backup")
                 .set(result.isSizeShrinkWarning() ? 1.0 : 0.0);
+        getOrRegisterGauge(MetricNames.S3_SIZE_GROWTH_WARNING, tags,
+                "1 = backup file is significantly larger than previous backup")
+                .set(result.isSizeGrowthWarning() ? 1.0 : 0.0);
+        getOrRegisterGauge(MetricNames.S3_DURATION_GROWTH_WARNING, tags,
+                "1 = backup duration is significantly longer than previous backup")
+                .set(result.isDurationGrowthWarning() ? 1.0 : 0.0);
         getOrRegisterGauge(MetricNames.S3_ALL_CHECKS_PASSED, tags,
                 "1 = all S3 checks passed (exists, size, accessible, magic bytes)")
                 .set(result.isAllPassed() ? 1.0 : 0.0);

@@ -17,3 +17,5 @@ databaseChangeLog:
       file: db/changelog/changes/008-s3-check-result-add-shrink-warning.yaml
   - include:
       file: db/changelog/changes/009-s3-check-result-add-compression.yaml
+  - include:
+      file: db/changelog/changes/010-s3-check-result-add-growth-warnings.yaml

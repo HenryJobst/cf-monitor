@@ -70,6 +70,8 @@ public class MonitoringConfig {
         private boolean enabled = true;
         private int accessibilityCheckBytes = 1024;
         private int shrinkWarningThresholdPercent = 20;
+        private int growthWarningThresholdPercent = 50;
+        private int durationGrowthThresholdPercent = 50;
     }
 
     @Data

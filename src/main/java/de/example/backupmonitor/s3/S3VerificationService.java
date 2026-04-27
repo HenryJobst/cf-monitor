@@ -35,6 +35,12 @@ public class S3VerificationService {
     @Value("${cf-backup-monitor.s3-verification.shrink-warning-threshold-percent:20}")
     private int shrinkWarningThresholdPercent;
 
+    @Value("${cf-backup-monitor.s3-verification.growth-warning-threshold-percent:50}")
+    private int growthWarningThresholdPercent;
+
+    @Value("${cf-backup-monitor.s3-verification.duration-growth-threshold-percent:50}")
+    private int durationGrowthThresholdPercent;
+
     public S3CheckResult verify(String managerId, String instanceId,
                                  String instanceName, BackupJob job) {
         if (!(job.getDestination() instanceof S3FileDestination dest)) {
@@ -81,10 +87,15 @@ public class S3VerificationService {
                 result.setSizeMatch(s3Size > 0);
             }
 
-            // ── b2) SHRINK ───────────────────────────────────────────────
+            // ── b2) SIZE TREND ───────────────────────────────────────────
             boolean compression = job.getBackupPlan() != null && job.getBackupPlan().isCompression();
             result.setCompression(compression);
-            checkShrink(result, instanceId, s3Size, compression);
+            checkSizeTrend(result, instanceId, s3Size, compression);
+
+            // ── e) DURATION ──────────────────────────────────────────────
+            long execTimeMs = resolveExecutionTimeMs(job);
+            result.setExecutionTimeMs(execTimeMs);
+            checkDurationGrowth(result, instanceId, execTimeMs, compression);
 
             // ── c) ACCESSIBLE ────────────────────────────────────────────
             int bytesToFetch = Math.max(accessibilityBytes, TAR_MIN_BYTES);
@@ -119,20 +130,47 @@ public class S3VerificationService {
         return finalize(result, managerId, instanceId, instanceName);
     }
 
-    private void checkShrink(S3CheckResult result, String instanceId,
-                              long currentSize, boolean compression) {
+    private void checkSizeTrend(S3CheckResult result, String instanceId,
+                                 long currentSize, boolean compression) {
         if (currentSize <= 0) return;
         repository.findLatestPassedForInstance(instanceId).ifPresent(prev -> {
             if (prev.getSizeActualBytes() == null || prev.getSizeActualBytes() <= 0) return;
             if (prev.isCompression() != compression) return;
             long prevSize = prev.getSizeActualBytes();
-            double shrinkPct = (double) (prevSize - currentSize) / prevSize * 100.0;
-            if (shrinkPct >= shrinkWarningThresholdPercent) {
+            double changePct = (double) (prevSize - currentSize) / prevSize * 100.0;
+            if (changePct >= shrinkWarningThresholdPercent) {
                 result.setSizeShrinkWarning(true);
                 log.warn("Backup file shrank by {:.1f}% (prev={} B, now={} B) for instance {}",
-                        shrinkPct, prevSize, currentSize, instanceId);
+                        changePct, prevSize, currentSize, instanceId);
+            } else if (-changePct >= growthWarningThresholdPercent) {
+                result.setSizeGrowthWarning(true);
+                log.warn("Backup file grew by {:.1f}% (prev={} B, now={} B) for instance {}",
+                        -changePct, prevSize, currentSize, instanceId);
             }
         });
+    }
+
+    private void checkDurationGrowth(S3CheckResult result, String instanceId,
+                                      long currentMs, boolean compression) {
+        if (currentMs <= 0) return;
+        repository.findLatestPassedForInstance(instanceId).ifPresent(prev -> {
+            if (prev.getExecutionTimeMs() == null || prev.getExecutionTimeMs() <= 0) return;
+            if (prev.isCompression() != compression) return;
+            long prevMs = prev.getExecutionTimeMs();
+            double growthPct = (double) (currentMs - prevMs) / prevMs * 100.0;
+            if (growthPct >= durationGrowthThresholdPercent) {
+                result.setDurationGrowthWarning(true);
+                log.warn("Backup duration grew by {:.1f}% (prev={} ms, now={} ms) for instance {}",
+                        growthPct, prevMs, currentMs, instanceId);
+            }
+        });
+    }
+
+    private long resolveExecutionTimeMs(BackupJob job) {
+        if (job.getAgentExecutionReponses() == null) return 0L;
+        return job.getAgentExecutionReponses().values().stream()
+                .mapToLong(r -> r.getExecutionTimeMs() != null ? r.getExecutionTimeMs() : 0L)
+                .sum();
     }
 
     private boolean isGzip(byte[] bytes) {
