@@ -4,6 +4,9 @@ stages:
 
 variables:
   MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+  # Image für den Deploy-Job – muss die CF CLI (cf8) enthalten.
+  # Kann in den CI/CD-Variablen des Projekts überschrieben werden.
+  CF_DEPLOY_IMAGE: "ubuntu:24.04"
 
 cache:
   key: "$CI_PROJECT_ID"
@@ -26,13 +29,11 @@ test:
 # Läuft nur auf dem Default-Branch (main) und bei Tags.
 # Erforderliche CI/CD-Variablen (geschützt setzen):
 #   CF_API, CF_USERNAME, CF_PASSWORD, CF_ORG, CF_SPACE
+#   CF_DEPLOY_IMAGE  – Image mit vorinstallierter CF CLI (überschreibt den Standard)
 deploy:
   stage: deploy
-  image: ubuntu:24.04
+  image: "$CF_DEPLOY_IMAGE"
   before_script:
-    - apt-get update -qq && apt-get install -y -qq curl
-    - curl -fsSL "https://packages.cloudfoundry.org/stable?release=linux64-binary&version=v8" -o cf.tgz
-    - tar -xzf cf.tgz && mv cf8 /usr/local/bin/cf
     - cf api "$CF_API"
     - cf auth "$CF_USERNAME" "$CF_PASSWORD"
     - cf target -o "$CF_ORG" -s "$CF_SPACE"
