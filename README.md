@@ -287,6 +287,53 @@ The schema is managed by Liquibase and created automatically. The following tabl
 
 ---
 
+### How the Restore Test Works
+
+The monitor does not perform the actual restore itself. Responsibilities are split across three components:
+
+| Component | Role |
+|---|---|
+| **Backup Manager** | Provides backup job metadata: S3 bucket, filename, credentials |
+| **Backup Agent** | Downloads the backup from S3 and restores it into the sandbox database |
+| **Monitor** | Orchestrates: prepare sandbox → trigger agent → poll status → validate |
+
+#### Sandbox Modes
+
+**`existing`** — A pre-configured PostgreSQL instance is used directly. Connection details (host, port, database, credentials) are fixed in the configuration. The monitor connects via JDBC and resets the schema before each restore (`DROP SCHEMA public CASCADE; CREATE SCHEMA public`).
+
+**`provision`** — A new PostgreSQL service instance is created in CloudFoundry before the test, a service key is generated to retrieve credentials, and the instance is registered in the `sandbox_registry` table for reuse in subsequent runs. The schema is reset before each use. Only one CF instance can be provisioned at a time (serialized internally). Requires:
+- CF V3 API access with a configured service account
+- A PostgreSQL service offering available in the target CF space
+- `cf.space-guid` set per manager
+- Sufficient CF quota for a new service instance
+
+#### Restore Flow
+
+```
+1. Find the most recent successful backup job (prefers jobs with passed S3 verification)
+2. Prepare sandbox (existing: reuse; provision: create CF instance if not yet registered)
+3. Reset sandbox schema (DROP SCHEMA public CASCADE)
+4. Trigger restore via Agent REST API (S3 source + sandbox DB as target)
+5. Poll agent status every 10 s until SUCCEEDED, FAILED, or timeout
+6. Run configured SQL validation queries against the restored database
+7. Persist result and publish metrics
+8. Reset sandbox schema again (cleanup, even on failure)
+```
+
+#### Validation Queries
+
+After a successful restore, each configured SQL query is executed against the sandbox. A query must return a single numeric value in the first column that is at or above `min-result`. Only `SELECT` statements are allowed. Results are stored as JSONB in `restore_test_result`.
+
+#### Limitations
+
+- Only **PostgreSQL** is supported as the restore target.
+- CF provisioning is serialized: only one new sandbox instance is created at a time.
+- SQL validation queries are limited to `SELECT` statements.
+- There is no per-query timeout; a long-running query blocks the test until the overall restore timeout is reached.
+- Orphaned CF sandbox instances from interrupted runs are cleaned up by a separate scheduler (`orphan-cleanup-cron`).
+
+---
+
 ### Running Tests
 
 ```bash
@@ -584,6 +631,56 @@ Das Schema wird von Liquibase verwaltet und automatisch angelegt. Folgende Tabel
 | `sandbox_registry` | Persistente Registry provisionierter CF-Sandbox-Instanzen |
 | `stored_token` | Verschlüsselte UAA-Zugriffstoken pro Manager |
 | `shedlock` | Verteilte Sperrtabelle (ShedLock) |
+
+---
+
+### So funktioniert der Restore-Test
+
+Der Monitor führt die eigentliche Rücksicherung nicht selbst durch. Die Verantwortung ist auf drei Komponenten verteilt:
+
+| Komponente | Rolle |
+|---|---|
+| **Backup-Manager** | Liefert Backup-Job-Metadaten: S3-Bucket, Dateiname, Credentials |
+| **Backup-Agent** | Lädt das Backup von S3 herunter und stellt es in der Sandbox-Datenbank wieder her |
+| **Monitor** | Orchestriert: Sandbox bereitstellen → Agent triggern → Status pollen → Validieren |
+
+#### Sandbox-Modi
+
+**`existing`** — Eine vorkonfigurierte PostgreSQL-Instanz wird direkt verwendet. Die Verbindungsdaten (Host, Port, Datenbank, Credentials) sind fest in der Konfiguration hinterlegt. Der Monitor verbindet sich per JDBC und setzt das Schema vor jeder Rücksicherung zurück (`DROP SCHEMA public CASCADE; CREATE SCHEMA public`).
+
+**`provision`** — Vor dem Test wird eine neue PostgreSQL-Service-Instanz in CloudFoundry angelegt, ein Service-Key zur Credential-Abfrage erstellt und die Instanz in der Tabelle `sandbox_registry` registriert, damit sie bei Folgeläufen wiederverwendet werden kann. Das Schema wird vor jeder Nutzung zurückgesetzt. Es kann immer nur eine CF-Instanz gleichzeitig provisioniert werden (intern serialisiert). Voraussetzungen:
+- CF V3 API erreichbar mit konfiguriertem Service-Account
+- PostgreSQL-Service-Angebot im Ziel-CF-Space vorhanden
+- `cf.space-guid` je Manager konfiguriert
+- Ausreichende CF-Quota für eine neue Service-Instanz
+
+#### Ablauf der Rücksicherung
+
+```
+1. Neuesten erfolgreichen Backup-Job ermitteln
+   (bevorzugt Jobs mit bestandener S3-Verifikation)
+2. Sandbox bereitstellen (existing: wiederverwenden;
+   provision: CF-Instanz anlegen, falls noch nicht registriert)
+3. Sandbox-Schema zurücksetzen (DROP SCHEMA public CASCADE)
+4. Rücksicherung per Agent REST-API triggern
+   (S3 als Quelle, Sandbox-DB als Ziel)
+5. Agent-Status alle 10 s pollen bis SUCCEEDED, FAILED oder Timeout
+6. Konfigurierte SQL-Validierungsabfragen gegen die Sandbox ausführen
+7. Ergebnis persistieren und Metriken publizieren
+8. Sandbox-Schema erneut zurücksetzen (Cleanup, auch bei Fehler)
+```
+
+#### Validierungsabfragen
+
+Nach erfolgreicher Rücksicherung wird jede konfigurierte SQL-Abfrage gegen die Sandbox ausgeführt. Eine Abfrage muss in der ersten Spalte einen einzelnen numerischen Wert zurückgeben, der mindestens `min-result` beträgt. Nur `SELECT`-Anweisungen sind erlaubt. Die Ergebnisse werden als JSONB in `restore_test_result` gespeichert.
+
+#### Einschränkungen
+
+- Nur **PostgreSQL** wird als Rücksicherungsziel unterstützt.
+- CF-Provisionierung ist serialisiert: Es wird immer nur eine neue Sandbox-Instanz gleichzeitig erstellt.
+- SQL-Validierungsabfragen sind auf `SELECT`-Anweisungen beschränkt.
+- Es gibt keinen Query-spezifischen Timeout; eine lang laufende Abfrage blockiert den Test bis zum allgemeinen Restore-Timeout.
+- Verwaiste CF-Sandbox-Instanzen aus unterbrochenen Läufen werden durch einen separaten Scheduler bereinigt (`orphan-cleanup-cron`).
 
 ---
 
